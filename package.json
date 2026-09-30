@@ -14,11 +14,14 @@
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.0",
     "@fontsource/dm-sans": "^5.2.0",
-    "@material/web": "^2.4.1"
+    "@material/web": "^2.4.1",
+    "gifenc": "^1.0.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",
+    "@types/omggif": "^1.0.5",
+    "omggif": "^1.0.10",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vitest": "^4.1.11"

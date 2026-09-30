@@ -1,5 +1,6 @@
 import { assetImage } from './engine/render';
 import type { AssetId, BattleMap } from './engine/types';
+import type { AnimatedScene } from './engine/animation';
 export type Tool = 'pan' | 'brush' | 'erase' | 'place';
 export class Viewport {
   private ctx: CanvasRenderingContext2D;
@@ -13,6 +14,8 @@ export class Viewport {
   private painting = false;
   private last = { x: 0, y: 0 };
   private queued = false;
+  private animation?: AnimatedScene;
+  private animationTimer?: number;
   tool: Tool = 'pan';
   brushSize = 1;
   selectedAsset: AssetId = 'tree-oak';
@@ -44,7 +47,18 @@ export class Viewport {
     canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('lostpointercapture', end);
     canvas.addEventListener('pointerleave', () => { this.pointer = undefined; this.draw(); });
     canvas.addEventListener('wheel', e => { e.preventDefault(); const p = this.point(e); this.setZoom(this.zoom * Math.exp(-e.deltaY * .001), p); }, { passive: false });
+    document.addEventListener('visibilitychange', () => this.tickAnimation());
     this.resize();
+  }
+  setAnimation(scene?: AnimatedScene): void {
+    this.animation?.dispose(); this.animation = scene;
+    this.tickAnimation(); this.draw();
+  }
+  private tickAnimation(): void {
+    window.clearTimeout(this.animationTimer);
+    if (!this.animation || document.hidden) return;
+    if (!document.querySelector('dialog[open]')) this.draw();
+    this.animationTimer = window.setTimeout(() => this.tickAnimation(), 100);
   }
   private point(e: MouseEvent): { x: number; y: number } { const rect = this.canvas.getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top }; }
   private cell(p: { x: number; y: number }): { x: number; y: number } { return { x: (p.x - this.offset.x) / this.zoom / this.tile, y: (p.y - this.offset.y) / this.zoom / this.tile }; }
@@ -84,7 +98,8 @@ export class Viewport {
     ctx.save(); ctx.translate(this.offset.x, this.offset.y); ctx.scale(this.zoom, this.zoom);
     ctx.shadowColor = '#00000066'; ctx.shadowBlur = 30 / this.zoom; ctx.shadowOffsetY = 10 / this.zoom;
     ctx.fillStyle = '#26372b'; ctx.fillRect(0, 0, this.image.width, this.image.height);
-    ctx.shadowColor = 'transparent'; ctx.drawImage(this.image, 0, 0);
+    ctx.shadowColor = 'transparent';
+    ctx.drawImage(this.animation?.frame(performance.now()) ?? this.image, 0, 0, this.image.width, this.image.height);
     ctx.strokeStyle = '#e4dbb544'; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, this.image.width, this.image.height);
     // Discreet cartographic coordinates live outside the exported artwork.
     ctx.fillStyle = '#8a948780'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${9 / this.zoom}px "DM Sans", sans-serif`;

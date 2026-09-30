@@ -39,7 +39,7 @@ El selector de temática está siempre disponible sobre los paneles. Al cambiarl
 - Se actualizan inmediatamente el mapa actual, los objetos existentes, la biblioteca, los pinceles, la previsualización de colocación y la interfaz.
 - **No se pierden casillas ni objetos editados**; solo cambia su representación. El cambio se puede deshacer/rehacer.
 - La generación posterior utiliza la temática elegida, incluyendo nombres y distribución de decoración.
-- Guardado, apertura de proyectos, miniatura de exportación y PNG/JPEG conservan la temática.
+- Guardado, apertura de proyectos, miniatura de exportación y PNG/JPEG/GIF conservan la temática.
 
 ## Escenarios y algoritmos
 
@@ -93,7 +93,7 @@ Los árboles respetan la red completa. Los puentes se ubican en los cruces reale
 2. Elegir un formato o introducir ancho y alto. Una casilla representa **5 pies**, aproximadamente **1,5 m**.
 3. Elegir cantidad de cuartos o miniatura de caminos según el escenario. Ajustar densidad, complejidad, agua y puntos de interés; pulsar **Generar mapa**.
 4. Pintar terrenos o elegir objetos para colocarlos, escalarlos, girarlos y borrarlos.
-5. Guardar el **JSON editable** o exportar una imagen **PNG/JPEG**.
+5. Guardar el **JSON editable** o exportar una imagen **PNG/JPEG** o un **GIF animado**.
 
 Las semillas nuevas comienzan con **`RC-`**; la inicial es `RC-7429`. El dado prepara otra semilla. También se permiten semillas escritas manualmente. Una misma configuración, temática y semilla produce el mismo mundo.
 
@@ -118,17 +118,53 @@ Las semillas nuevas comienzan con **`RC-`**; la inicial es `RC-7429`. El dado pr
 | Rehacer | Ctrl/Cmd + Shift + Z o Ctrl/Cmd + Y |
 | Desplazar con cualquier herramienta | Alt + arrastrar, botón derecho o central |
 
+## Agua, magia y vegetación animadas
+
+Las animaciones comparten un **bucle determinista de 2,4 segundos**, con fases distintas por objeto para evitar movimientos sincronizados. Funcionan en los tres escenarios y las tres temáticas, también con agua pintada y objetos colocados manualmente.
+
+| Elemento | Movimiento |
+|---|---|
+| Agua | Ondas suaves |
+| Antorchas y hogueras | Llamas, brasas y luz fluctuante |
+| Cristales | Pulsación luminosa y destellos sobre sus facetas |
+| Altar arcano | Runas que se iluminan progresivamente, arco de luz y partículas |
+| Nenúfares | Balanceo leve, pequeña rotación y ondas alrededor cuando están sobre agua |
+| Juncos | Oscilación del extremo superior, con las bases fijas |
+| Robles, pinos, robles otoñales y arbustos | Balanceo sutil de la parte superior, conservando troncos y bases |
+| Flores | Balanceo y pétalos discretos; más visibles en Anime |
+| Roble otoñal de Anime | Pétalos de cerezo además del movimiento de la copa |
+| Setas | Bioluminiscencia opcional, desactivada de forma predeterminada |
+
+La opción **Dale personalidad → Setas bioluminiscentes** se aplica inmediatamente a la vista animada y al GIF. Es una preferencia de renderizado de la sesión, como la atmósfera: no modifica el JSON ni el historial, no se guarda al recargar y no altera PNG/JPEG. Con la animación pausada se muestra la ilustración estática original.
+
+Rocas, huesos, troncos caídos, muebles, cofres, puertas, puentes, escaleras y demás estructuras permanecen estáticos. No se añaden ciclos de apertura/cierre ni interacciones con cofres o puertas.
+
+- **Animación**, junto a Cuadrícula y Atmósfera, permite pausar o reanudar la vista sin modificar el mapa ni su historial.
+- Se respeta la preferencia de **movimiento reducido** del sistema: la vista comienza pausada y puede activarse explícitamente.
+- El movimiento se suspende cuando la pestaña está oculta y durante los diálogos. Los mapas sin agua ni objetos animables no mantienen un ciclo de repintado.
+- **Atmósfera** controla los halos, pero no desactiva las ondas, llamas, runas, destellos ni el balanceo.
+- La vista animada utiliza capas y sprites rasterizados en caché y una resolución acotada; no regenera terreno o ruido en cada fotograma. Cada sprite se comparte entre objetos del mismo tipo. Objetos y efectos se dibujan en orden de profundidad: los árboles y estructuras superiores ocultan las llamas, runas o partículas que quedan debajo. Los SVG originales siguen siendo estáticos y no se han modificado.
+- Las animaciones se reconstruyen a partir del terreno, objetos y semilla del JSON existente: no hace falta migrar ni guardar fotogramas. La pausa es una opción de vista, no una propiedad del proyecto.
+
 ## Exportación y proyectos anteriores
 
-**PNG** sin pérdida o **JPEG** al 94 %, con/sin cuadrícula, a **50, 100 o 150 píxeles por casilla**. Se exporta el mapa completo, con su temática y relación de aspecto, independientemente del zoom. No se añaden controles, coordenadas externas ni marcas de agua.
+**PNG** sin pérdida o **JPEG** al 94 %, con/sin cuadrícula, a **25, 50, 100 o 150 píxeles por casilla**. Estas dos opciones siguen siendo estáticas. Se exporta el mapa completo, con su temática y relación de aspecto, independientemente del zoom. No se añaden controles, coordenadas externas ni marcas de agua.
 
 Máximo **40 megapíxeles por imagen** para contener el uso de memoria. Una combinación de tamaño/resolución que exceda el límite muestra un error; elegir menos píxeles por casilla. Los píxeles por casilla no fijan el tamaño físico de impresión: ajustar la escala en la aplicación de impresión o mesa virtual.
+
+### GIF animado
+
+En **Exportar mapa → Formato → GIF · Animado en bucle**, Descargar imagen genera un GIF real con **24 fotogramas de 100 ms**, repetición infinita y una paleta global de hasta **256 colores** para reducir el parpadeo de color. Conserva las ondas, llamas, halos, magia y vegetación animadas, la temática, la cuadrícula elegida y la relación de aspecto. Siempre anima los elementos presentes, aunque la vista del editor esté pausada; las setas solo emiten luz si su opción está activada. Sin agua ni objetos animables, los fotogramas no tienen movimiento.
+
+La exportación GIF tiene un límite propio de **1 megapíxel y 1600 píxeles por lado**. Los píxeles por casilla se reducen automáticamente a un entero si hace falta, y el diálogo indica las dimensiones reales antes de descargar. Por ejemplo, 40 × 30 casillas a 100 px se exportan como **1120 × 840 px** (28 px por casilla). Para impresión o mayor resolución, usar PNG/JPEG. La miniatura del diálogo es estática.
+
+La codificación se realiza localmente mediante `gifenc` (MIT) en un **Web Worker**, transfiriendo un fotograma a la vez. Los fotogramas posteriores conservan los píxeles sin cambios mediante transparencia y solo actualizan las zonas animadas, reduciendo el tamaño sin dejar estelas. Se muestra el progreso y puede cancelarse con Volver al mapa, la X o Escape; se termina el worker y se liberan las capas. No se suben mapas a servidores. La compatibilidad de reproducción depende de la mesa virtual donde se importe el archivo.
 
 Los proyectos nuevos se guardan como `nombre.tematica.rc.json`, con versión 2 y `config.theme`. Los archivos antiguos de versión 1 se abren como **Vanilla** si no tenían temática, **sin alterar casillas, posiciones, objetos ni semillas anteriores**. También se recupera el último mapa guardado bajo la clave anterior del navegador, y se escribe una copia migrada en `rc-map-v2`; el registro anterior no se borra.
 
 Los proyectos de versión 2 anteriores a los nuevos controles reciben valores predeterminados únicamente para las opciones ausentes: cuartos automáticos, caminos sinuosos activados y ramales opcionales desactivados. Su terreno, objetos y ediciones guardadas no se regeneran ni se modifican durante esta migración. Las nuevas opciones son `roomCount` (0 = automático), `forestPaths`, `forestPathLayout`, `forestBranches` y `forestDeadEnds`.
 
-Los archivos JSON se validan antes de renderizar: máximo 5 MB y 20.000 objetos. PNG/JPEG son imágenes planas; conservar el JSON para continuar editando. El guardado local no sustituye una copia de seguridad.
+Los archivos JSON se validan antes de renderizar: máximo 5 MB y 20.000 objetos. PNG/JPEG/GIF no conservan capas editables; conservar el JSON para continuar editando. El guardado local no sustituye una copia de seguridad.
 
 ## Estructura
 
@@ -149,6 +185,12 @@ src/
     scenario-options.ts      Catálogo de miniaturas y validación compartida
     generate.worker.ts       Generación en Web Worker
     render.ts                Renderizado por capas y exportación temática
+    animation.ts             Ondas y composición animada en orden de profundidad
+    animated-objects.ts      Sprites compartidos, vegetación, magia y pétalos
+    animation-settings.ts    Duración, fotogramas y límites de resolución
+    export-gif.ts            Exportación secuencial, progreso y cancelación
+    gif-encoder.ts           Paleta global y codificación GIF
+    gif.worker.ts            Codificación fuera del hilo principal
     storage.ts               Validación y migración de proyectos
 public/assets/
   vanilla/                   31 SVG originales, preservados exactamente
@@ -160,11 +202,11 @@ scripts/
   create-theme-assets.mjs    Variantes Dark/Anime y copia de Vanilla
 ```
 
-La vista y la exportación comparten el renderizador. El ruido se muestrea en coordenadas del mundo para conservar el paisaje al cambiar resolución. La generación se ejecuta en un Web Worker; Canvas 2D y exportación, en el hilo principal.
+La vista y la exportación comparten el renderizador. El ruido se muestrea en coordenadas del mundo para conservar el paisaje al cambiar resolución. La generación y la codificación GIF se ejecutan en Web Workers separados; el dibujo Canvas 2D y las exportaciones estáticas permanecen en el hilo principal.
 
 ## Verificación y límites
 
-Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 93 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG y vista móvil. Las pruebas del motor cubren semillas, los nueve cruces de tema/escenario y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
+Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 93 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG/GIF y vista móvil. Las pruebas de animación verifican pausa, movimiento reducido, ondas bajo los puentes, ciclos cerrados, cancelación y recuperación ante errores del worker. También comprueban cada objeto animado en las tres temáticas, las bases inmóviles de las plantas, la oclusión por estructuras, la bioluminiscencia opcional y la conservación de los movimientos nuevos en GIF. Los GIF se decodifican con un lector independiente (`omggif`) para comprobar dimensiones, fotogramas distintos, duración y repetición infinita. Las pruebas del motor cubren semillas, los nueve cruces de tema/escenario y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
 
 La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
 

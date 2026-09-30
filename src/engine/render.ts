@@ -1,5 +1,5 @@
 import { ASSETS } from './types';
-import type { BattleMap, RenderOptions, Terrain, Theme } from './types';
+import type { BattleMap, MapObject, RenderOptions, Terrain, Theme } from './types';
 import { assetUrl, THEMES, THEME_IDS } from './themes';
 import { fbm, hashString, Random } from './random';
 
@@ -15,7 +15,7 @@ export async function loadAssets(): Promise<void> {
 export function assetImage(id: string, theme: Theme): HTMLImageElement | undefined { return images.get(`${theme}/${id}`); }
 
 // Trace cell boundaries into closed polygons; rounded corners soften organic terrain.
-function terrainPath(map: BattleMap, test: (t: Terrain) => boolean, tile: number, round = true): Path2D {
+export function terrainPath(map: BattleMap, test: (t: Terrain) => boolean, tile: number, round = true): Path2D {
   const { width: w, height: h } = map.config;
   const edges = new Map<string, [number, number][]>();
   const has = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && test(map.terrain[y * w + x]);
@@ -84,13 +84,25 @@ function texture(ctx: CanvasRenderingContext2D, name: string, width: number, hei
   ctx.globalAlpha = opacity; ctx.fillStyle = pattern; ctx.fillRect(0, 0, width, height); ctx.globalAlpha = 1;
 }
 
-export function renderMap(map: BattleMap, tile: number, options: RenderOptions): HTMLCanvasElement {
+export function orderedObjects(map: BattleMap): MapObject[] {
+  const z = (asset: string) => asset === 'rug' || asset === 'bridge' ? -2 : asset.startsWith('tree') ? 2 : 0;
+  return [...map.objects].sort((a, b) => z(a.asset) - z(b.asset) || a.y - b.y);
+}
+
+/** Optional layer capture is used by the animation renderer; ordinary exports remain unchanged. */
+export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], drawObjects = true): HTMLCanvasElement {
   const { width: w, height: h, biome, theme } = map.config;
   const palette = THEMES[theme];
   const ink = (vanilla: string, dark: string, anime: string) => theme === 'dark' ? dark : theme === 'anime' ? anime : vanilla;
   const canvas = document.createElement('canvas');
   canvas.width = w * tile; canvas.height = h * tile;
-  const ctx = canvas.getContext('2d')!;
+  let ctx = canvas.getContext('2d')!;
+  const splitLayer = () => {
+    if (!layers) return;
+    layers.push(ctx.canvas);
+    const next = document.createElement('canvas'); next.width = canvas.width; next.height = canvas.height;
+    ctx = next.getContext('2d')!;
+  };
   const width = canvas.width, height = canvas.height, seed = hashString(map.config.seed);
   const rng = new Random(map.config.seed + '-art');
   const forest = biome === 'forest', cave = biome === 'cave';
@@ -171,10 +183,8 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions):
     }
   }
 
-  const objects = [...map.objects].sort((a, b) => {
-    const z = (asset: string) => asset === 'rug' || asset === 'bridge' ? -2 : asset.startsWith('tree') ? 2 : 0;
-    return z(a.asset) - z(b.asset) || a.y - b.y;
-  });
+  splitLayer();
+  const objects = drawObjects ? orderedObjects(map) : [];
   for (const obj of objects) {
     const image = assetImage(obj.asset, theme); if (!image) continue;
     const size = obj.scale * tile, x = obj.x * tile, y = obj.y * tile;
@@ -191,6 +201,7 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions):
     ctx.drawImage(image, -size / 2, -size / 2, size, size); ctx.restore();
   }
 
+  splitLayer();
   if (options.atmosphere) {
     const vignette = ctx.createRadialGradient(width * .45, height * .42, width * .13, width * .5, height * .5, Math.max(width, height) * .65);
     vignette.addColorStop(0, '#15271b00'); vignette.addColorStop(.55, ink('#14291d08', '#14121e18', '#b1b7f008')); vignette.addColorStop(1, ink('#091c2055', '#08081199', '#38447433')); 
@@ -209,5 +220,6 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions):
     for (let y = 1; y < h; y++) { ctx.moveTo(0, y * tile); ctx.lineTo(width, y * tile); }
     ctx.stroke();
   }
+  if (layers) layers.push(ctx.canvas);
   return canvas;
 }

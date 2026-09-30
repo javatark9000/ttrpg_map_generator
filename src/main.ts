@@ -22,6 +22,8 @@ import { SIZE_PRESETS, MIN_SIDE, MAX_SIDE, dimensionsError, aspectRatio } from '
 import { PATH_LAYOUTS, MAX_ROOMS, maxRoomCount, roomCountError, scenarioOptionsError } from './engine/scenario-options';
 import { freshSeed } from './engine/random';
 import { loadAssets, renderMap } from './engine/render';
+import { createAnimatedScene, hasAnimation } from './engine/animation';
+import { gifDimensions } from './engine/animation-settings';
 import { parseMap, STORAGE_KEY, LEGACY_STORAGE_KEY } from './engine/storage';
 import { Viewport } from './viewport';
 import type { Tool } from './viewport';
@@ -29,6 +31,7 @@ import { icon } from './icons';
 import './style.css';
 import './themes.css';
 import './scenario-controls.css';
+import './animation.css';
 
 type Field = HTMLElement & { value: string; disabled: boolean };
 type Toggle = HTMLElement & { selected: boolean; disabled: boolean };
@@ -86,6 +89,7 @@ $('#app').innerHTML = `
       <md-slider id="complexity" aria-labelledby="complexity-label" min="0" max="100" value="55" step="1"></md-slider>
       <div class="range-labels"><span>Sereno</span><span>Intrincado</span></div>
       <div class="toggle-list"><label class="toggle-row"><span>${icon('water')} Ríos y lagunas</span><md-switch id="water" aria-label="Ríos y lagunas" selected></md-switch></label><label class="toggle-row"><span>${icon('flag')} Puntos de interés</span><md-switch id="landmarks" aria-label="Puntos de interés" selected></md-switch></label></div>
+      <label class="toggle-row" title="Efecto opcional en la vista animada y el GIF; no cambia PNG/JPEG ni el proyecto."><span>${icon('sparkle')} Setas bioluminiscentes</span><md-switch id="bioluminescence" aria-label="Setas bioluminiscentes"></md-switch></label><p class="scenario-hint">Opcional · solo en la vista animada y el GIF.</p>
       <div class="world-note">${icon('sparkle')} Una semilla, un mundo único.<br><span>La aventura la escribes tú.</span></div>
     </section>
     <section id="assets-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-assets" hidden>
@@ -98,7 +102,7 @@ $('#app').innerHTML = `
     <div class="sidebar-footer"><md-filled-button id="generate">${icon('sparkle', 'button-icon')} Generar mapa</md-filled-button><p>Generación procedural · Sin IA generativa</p></div>
   </aside>
   <main class="workspace">
-    <div class="map-heading"><div class="map-heading-left">${iconButton('toggle-sidebar', 'menu', 'Abrir panel de creación')}<span class="map-type-icon">${icon('trees')}</span><div><div class="map-title-row"><h1 id="map-title">El bosque de los susurros</h1><span class="map-edited" hidden>Editado</span><span id="scenario-summary" class="scenario-summary" hidden></span></div><p><span id="map-biome">BOSQUE</span><span class="dot-separator">·</span><span id="map-dimensions">40 × 30 casillas</span><span class="dot-separator">·</span><span id="map-style">Ilustración natural</span></p></div></div><div class="view-toggles"><button id="grid-toggle" class="view-toggle active" aria-pressed="true" title="Mostrar cuadrícula (G)">${icon('grid')}<span>Cuadrícula</span></button><button id="light-toggle" class="view-toggle active" aria-pressed="true" title="Activar o desactivar ambientación">${icon('sun')}<span>Atmósfera</span></button></div></div>
+    <div class="map-heading"><div class="map-heading-left">${iconButton('toggle-sidebar', 'menu', 'Abrir panel de creación')}<span class="map-type-icon">${icon('trees')}</span><div><div class="map-title-row"><h1 id="map-title">El bosque de los susurros</h1><span class="map-edited" hidden>Editado</span><span id="scenario-summary" class="scenario-summary" hidden></span></div><p><span id="map-biome">BOSQUE</span><span class="dot-separator">·</span><span id="map-dimensions">40 × 30 casillas</span><span class="dot-separator">·</span><span id="map-style">Ilustración natural</span></p></div></div><div class="view-toggles"><button id="grid-toggle" class="view-toggle active" aria-pressed="true" title="Mostrar cuadrícula (G)">${icon('grid')}<span>Cuadrícula</span></button><button id="light-toggle" class="view-toggle active" aria-pressed="true" title="Activar o desactivar ambientación">${icon('sun')}<span>Atmósfera</span></button><button id="animation-toggle" class="view-toggle active" aria-pressed="true" aria-label="Animación" title="Pausar o reanudar las animaciones">${icon('water')}<span>Animación</span></button></div></div>
     <div id="map-stage" class="map-stage">
       <canvas id="map-canvas" aria-label="Mapa de batalla. Usa los controles para desplazar, pintar terrenos o colocar objetos."></canvas>
       <div class="canvas-corner-label"><span class="live-dot"></span> LIENZO DE AVENTURA</div>
@@ -111,7 +115,7 @@ $('#app').innerHTML = `
     <footer class="status-bar"><div><span class="status-dot"></span><span id="save-status">Todo listo para la aventura</span></div><div class="status-details"><span id="object-count">0 objetos</span><span class="status-divider"></span><span id="cell-position">X — &nbsp; Y —</span><span class="status-divider"></span><button id="help-button">${icon('help')}<span>Atajos y ayuda</span></button></div></footer>
   </main>
 </div>
-<dialog id="export-dialog" class="modal"><div class="modal-top"><span class="eyebrow">DE TU IMAGINACIÓN A LA MESA</span>${iconButton('close-export', 'close', 'Cerrar exportación')}</div><h2>Tu aventura, lista para llevar.</h2><p class="modal-description">Una imagen de alta calidad para imprimir o llevar a tu mesa virtual favorita.</p><div class="export-preview"><img id="export-preview" alt="Vista previa del mapa actual"/><span id="export-map-name"></span></div><div class="export-fields"><md-outlined-select id="export-format" label="Formato">${option('png', 'PNG · Sin pérdida', true)}${option('jpeg', 'JPEG · Más ligero')}</md-outlined-select><md-outlined-select id="export-resolution" label="Píxeles por casilla">${option('50', '50 px · Ligero')}${option('100', '100 px · Recomendado', true)}${option('150', '150 px · Alta resolución')}</md-outlined-select></div><label class="toggle-row export-grid"><span>${icon('grid')} Incluir cuadrícula</span><md-switch id="export-grid" aria-label="Incluir cuadrícula en la imagen" selected></md-switch></label><p class="export-meta"><span id="export-dimensions">4000 × 3000 px</span><span>Sin marcas de agua</span></p><div class="modal-actions"><md-text-button id="cancel-export">Volver al mapa</md-text-button><md-filled-button id="download-image">${icon('download', 'button-icon')} Descargar imagen</md-filled-button></div><p id="export-error" class="export-error" role="alert" hidden></p><p class="export-note">La exportación usa el mapa completo, no el zoom de la vista.</p></dialog>
+<dialog id="export-dialog" class="modal"><div class="modal-top"><span class="eyebrow">DE TU IMAGINACIÓN A LA MESA</span>${iconButton('close-export', 'close', 'Cerrar exportación')}</div><h2>Tu aventura, lista para llevar.</h2><p class="modal-description">Una imagen para imprimir o un GIF animado para dar vida a tu mesa virtual.</p><div class="export-preview"><img id="export-preview" alt="Vista previa del mapa actual"/><span id="export-map-name"></span></div><div class="export-fields"><md-outlined-select id="export-format" label="Formato">${option('png', 'PNG · Sin pérdida', true)}${option('jpeg', 'JPEG · Más ligero')}${option('gif', 'GIF · Animado en bucle')}</md-outlined-select><md-outlined-select id="export-resolution" label="Píxeles por casilla">${option('25', '25 px · GIF ligero')}${option('50', '50 px · Ligero')}${option('100', '100 px · Recomendado', true)}${option('150', '150 px · Alta resolución')}</md-outlined-select></div><label class="toggle-row export-grid"><span>${icon('grid')} Incluir cuadrícula</span><md-switch id="export-grid" aria-label="Incluir cuadrícula en la imagen" selected></md-switch></label><p class="export-meta"><span id="export-dimensions">4000 × 3000 px</span><span>Sin marcas de agua</span></p><p id="gif-note" class="export-note" hidden></p><div id="gif-progress" role="status" aria-live="polite" hidden><progress id="gif-progress-bar" max="24" value="0" aria-label="Progreso de exportación GIF"></progress><span id="gif-progress-text"></span></div><div class="modal-actions"><md-text-button id="cancel-export">Volver al mapa</md-text-button><md-filled-button id="download-image">${icon('download', 'button-icon')} Descargar imagen</md-filled-button></div><p id="export-error" class="export-error" role="alert" hidden></p><p class="export-note">La exportación usa el mapa completo, no el zoom de la vista.</p></dialog>
 <dialog id="help-dialog" class="modal help-modal"><div class="modal-top"><span class="eyebrow">EL CUADERNO DEL CARTÓGRAFO</span>${iconButton('close-help', 'close', 'Cerrar ayuda')}</div><h2>Unas coordenadas para empezar.</h2><p class="modal-description">Configura un escenario y pulsa <strong>Generar mapa</strong>. La misma semilla y configuración producen el mismo mundo.</p><div class="shortcut-list">${[['V', 'Desplazar el lienzo'], ['B', 'Pintar terrenos'], ['E', 'Borrar objetos'], ['R', 'Girar el objeto seleccionado'], ['G', 'Mostrar u ocultar la cuadrícula'], ['F', 'Ajustar el mapa a la pantalla'], ['Ctrl Z', 'Deshacer'], ['Ctrl ⇧ Z', 'Rehacer']].map(([key, label]) => `<div><span>${label}</span><kbd>${key}</kbd></div>`).join('')}</div><p class="help-note">También puedes desplazar con Alt + arrastrar o el botón derecho. Los cambios se guardan en este navegador. Descarga el proyecto JSON para conservar una copia editable.</p><p class="help-note">Los objetos son decorativos: ajusta los pasos y coberturas según tu encuentro. Cada casilla equivale a 5 pies (aprox. 1,5 m).</p></dialog>
 <dialog id="confirm-dialog" class="modal confirm-modal"><span class="eyebrow">ANTES DE SEGUIR</span><h2>¿Reemplazar este mundo?</h2><p>Se reemplazará el mapa y sus ediciones. Puedes guardar el proyecto JSON para conservar una copia.</p><div class="modal-actions"><md-text-button id="cancel-replace">Cancelar</md-text-button><md-filled-button id="confirm-replace">Reemplazar mapa</md-filled-button></div></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div><input id="project-input" type="file" accept=".json,application/json" hidden />`;
@@ -121,6 +125,7 @@ let config: MapConfig = { ...DEFAULT_CONFIG };
 let map: BattleMap;
 let mapImage: HTMLCanvasElement;
 let options: RenderOptions = { grid: true, gridOpacity: .22, atmosphere: true };
+let animationEnabled = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 let terrain: Terrain = 'grass';
 let busy = true;
 let edited = false;
@@ -145,8 +150,20 @@ function setBusy(value: boolean, label = 'Dibujando otro mundo…'): void {
 function render(fit = false): void {
   if (!map || !assetsReady) return;
   clearTimeout(renderTimer); renderTimer = undefined;
-  mapImage = renderMap(map, 56, options); view.setMap(map, mapImage, fit); updateStatus();
+  view.setAnimation();
+  mapImage = renderMap(map, 56, options); view.setMap(map, mapImage, fit); updateAnimation(); updateStatus();
 }
+function updateAnimation(): void {
+  $('#animation-toggle').classList.toggle('active', animationEnabled);
+  $('#animation-toggle').setAttribute('aria-pressed', String(animationEnabled));
+  $('#animation-toggle').title = animationEnabled ? 'Pausar las animaciones' : 'Reanudar las animaciones';
+  view.setAnimation(map && assetsReady && animationEnabled && hasAnimation(map, options)
+    ? createAnimatedScene(map, gifDimensions(map.config.width, map.config.height, 56).tile, options) : undefined);
+}
+$('#animation-toggle').addEventListener('click', () => { animationEnabled = !animationEnabled; updateAnimation(); });
+$('#bioluminescence').addEventListener('change', () => {
+  options.bioluminescence = ($('#bioluminescence') as Toggle).selected; updateAnimation();
+});
 function scheduleRender(): void { if (!renderTimer) renderTimer = setTimeout(() => render(), 100); }
 function saveLocal(): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); $('#save-status').textContent = 'Guardado en este navegador'; }
@@ -379,6 +396,8 @@ $('#project-input').addEventListener('change', async () => {
 });
 
 let previewUrl: string | undefined;
+let exportController: AbortController | undefined;
+($('#export-dialog') as HTMLDialogElement).addEventListener('close', () => exportController?.abort());
 $('#open-export').addEventListener('click', async () => {
   if (!map || busy) return;
   ($('#export-grid') as Toggle).selected = options.grid;
@@ -398,28 +417,55 @@ $('#open-export').addEventListener('click', async () => {
 function updateExportMeta(): void {
   if (!map) return;
   const size = Number(($('#export-resolution') as Field).value);
-  $('#export-dimensions').textContent = `${map.config.width * size} × ${map.config.height * size} px`;
+  const gif = ($('#export-format') as Field).value === 'gif';
+  const dimensions = gif ? gifDimensions(map.config.width, map.config.height, size) : { tile: size, width: map.config.width * size, height: map.config.height * size, reduced: false };
+  $('#export-dimensions').textContent = `${dimensions.width} × ${dimensions.height} px`;
+  $('#gif-note').hidden = !gif;
+  $('#gif-note').textContent = `Bucle de 2,4 s · 24 fotogramas · Paleta de 256 colores · ${dimensions.tile} px por casilla. ${dimensions.reduced ? 'Resolución ajustada automáticamente. ' : ''}Límite GIF: 1 megapíxel y 1600 px por lado. ${hasAnimation(map, options) ? 'Anima aunque la vista esté pausada.' : 'Sin elementos animables: este mapa no tendrá movimiento.'} ${options.bioluminescence ? 'Setas bioluminiscentes activadas. ' : ''}La miniatura es estática.`;
 }
-$('#export-resolution').addEventListener('change', () => { updateExportMeta(); $('#export-error').hidden = true; });
+for (const id of ['export-resolution', 'export-format']) $(`#${id}`).addEventListener('change', () => { updateExportMeta(); $('#export-error').hidden = true; });
 $('#export-grid').addEventListener('change', () => {
   const preview = renderMap(map, 16, { ...options, grid: ($('#export-grid') as Toggle).selected });
   preview.toBlob(blob => { if (blob) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(blob); ($('#export-preview') as HTMLImageElement).src = previewUrl; } });
 });
 for (const id of ['close-export', 'cancel-export']) $(`#${id}`).addEventListener('click', () => ($('#export-dialog') as HTMLDialogElement).close());
 $('#download-image').addEventListener('click', async () => {
+  if (exportController) return;
+  const controller = new AbortController(); exportController = controller;
   const button = $('#download-image') as Field; button.disabled = true; $('#export-error').hidden = true;
+  const fields = ['export-format', 'export-resolution', 'export-grid'].map(id => $(`#${id}`) as Field);
+  fields.forEach(field => field.disabled = true);
   try {
     const tile = Number(($('#export-resolution') as Field).value), format = ($('#export-format') as Field).value;
-    const pixels = map.config.width * tile * map.config.height * tile;
-    if (pixels > 40_000_000) throw new Error('Esta resolución es muy grande. Elige 100 o 50 px por casilla (máximo 40 megapíxeles).');
-    button.textContent = 'Preparando imagen…'; await new Promise(resolve => setTimeout(resolve, 50));
-    const exported = renderMap(map, tile, { ...options, grid: ($('#export-grid') as Toggle).selected });
-    const blob = await new Promise<Blob>((resolve, reject) => exported.toBlob(b => b ? resolve(b) : reject(new Error('El navegador no pudo exportar esta resolución. Prueba con una menor.')), `image/${format}`, .94));
-    download(blob, `${filename()}-${map.config.theme}-${map.config.width}x${map.config.height}.${format === 'jpeg' ? 'jpg' : 'png'}`);
-    exported.width = 1; exported.height = 1;
+    const exportOptions = { ...options, grid: ($('#export-grid') as Toggle).selected };
+    const snapshot = structuredClone(map), name = `${filename()}-${map.config.theme}-${map.config.width}x${map.config.height}`;
+    const pixels = snapshot.config.width * tile * snapshot.config.height * tile;
+    if (format !== 'gif' && pixels > 40_000_000) throw new Error('Esta resolución es muy grande. Elige 100 o 50 px por casilla (máximo 40 megapíxeles).');
+    button.textContent = format === 'gif' ? 'Preparando GIF…' : 'Preparando imagen…';
+    await new Promise(resolve => setTimeout(resolve, 50)); controller.signal.throwIfAborted();
+    let blob: Blob;
+    if (format === 'gif') {
+      $('#gif-progress').hidden = false;
+      const { exportGif } = await import('./engine/export-gif');
+      blob = await exportGif(snapshot, tile, exportOptions, controller.signal, (frame, total) => {
+        ($('#gif-progress-bar') as HTMLProgressElement).value = frame;
+        $('#gif-progress-text').textContent = `Creando GIF: ${frame} de ${total} fotogramas… Puedes cancelar cerrando esta ventana.`;
+      });
+    } else {
+      const exported = renderMap(snapshot, tile, exportOptions);
+      try { blob = await new Promise<Blob>((resolve, reject) => exported.toBlob(b => b ? resolve(b) : reject(new Error('El navegador no pudo exportar esta resolución. Prueba con una menor.')), `image/${format}`, .94)); }
+      finally { exported.width = 1; exported.height = 1; }
+    }
+    controller.signal.throwIfAborted();
+    download(blob, `${name}.${format === 'jpeg' ? 'jpg' : format}`);
     ($('#export-dialog') as HTMLDialogElement).close(); toast('Mapa exportado. Que empiece la aventura.');
-  } catch (error) { $('#export-error').textContent = error instanceof Error ? error.message : 'No se pudo exportar la imagen.'; $('#export-error').hidden = false; }
-  finally { button.disabled = false; button.innerHTML = `${icon('download', 'button-icon')} Descargar imagen`; }
+  } catch (error) {
+    if (!controller.signal.aborted) { $('#export-error').textContent = error instanceof Error ? error.message : 'No se pudo exportar la imagen.'; $('#export-error').hidden = false; }
+  } finally {
+    exportController = undefined; $('#gif-progress').hidden = true;
+    fields.forEach(field => field.disabled = false);
+    button.disabled = false; button.innerHTML = `${icon('download', 'button-icon')} Descargar imagen`;
+  }
 });
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('click', e => { if (e.target === dialog) { const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); } });
 

@@ -39,7 +39,7 @@ export interface BattleMap {
   /** Original generated rooms; manual terrain edits do not redefine this metadata. */
   rooms?: DungeonRoom[];
 }
-export interface RenderOptions { grid: boolean; gridOpacity: number; atmosphere: boolean }
+export interface RenderOptions { grid: boolean; gridOpacity: number; atmosphere: boolean; bioluminescence?: boolean }
 export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: string; icon: string }> = {
   forest: { name: 'Bosque', subtitle: 'Senderos entre lo salvaje', prefix: 'El bosque', icon: 'trees' },
   dungeon: { name: 'Mazmorra', subtitle: 'Secretos bajo la piedra', prefix: 'La cripta', icon: 'castle' },
