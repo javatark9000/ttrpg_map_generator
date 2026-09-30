@@ -45,11 +45,39 @@ El selector de temática está siempre disponible sobre los paneles. Al cambiarl
 
 Los tres escenarios están disponibles en cada temática:
 
-- **Bosque:** ruido fractal, vegetación con separación mínima, senderos, río, puente y campamento. En formato vertical, el trazado sigue el eje largo; no se estira una imagen horizontal.
-- **Mazmorra:** habitaciones por BSP, particiones adaptadas al espacio disponible y conexión mediante árbol de expansión mínima. Puertas, antorchas, columnas, cofres y mobiliario.
+- **Bosque:** ruido fractal, vegetación con separación mínima, redes de senderos configurables, río, puentes orientados según los cruces y campamento. El trazado elegido conserva su orientación incluso en mapas verticales; no se estira ni se gira una imagen horizontal.
+- **Mazmorra:** habitaciones por BSP con cantidad automática o exacta, particiones adaptadas al espacio disponible y conexión mediante árbol de expansión mínima. Puertas, antorchas, columnas, cofres y mobiliario.
 - **Caverna:** autómatas celulares, conexión de regiones mediante flood fill, lagunas, rocas y cristales.
 
 La geometría se crea directamente con el ancho y el alto solicitados. Los objetos conservan sus proporciones. La conectividad del **terreno** generado se comprueba en los tres escenarios; las ilustraciones son decorativas y no bloquean navegación.
+
+### Cantidad de cuartos en mazmorras
+
+Al seleccionar **Mazmorra** aparece **Cuartos de la mazmorra**:
+
+- **Cantidad automática** mantiene la generación BSP anterior, dependiente del tamaño y la complejidad.
+- Desactivar esa opción permite introducir la **cantidad exacta** de cuartos, desde 1 hasta el límite indicado para el tamaño actual (máximo manual: 40).
+- Cada cuarto tiene al menos **4 × 4 casillas** y una separación de muros. La división BSP reserva capacidad para cumplir la cantidad solicitada en cualquier semilla, no simplemente un número de intentos de colocación.
+- Si el mapa es demasiado pequeño para la cantidad elegida, aparece una explicación y se desactiva Generar; no se reduce la cantidad en silencio.
+- El encabezado muestra el número generado. La propiedad `rooms` del JSON conserva las áreas originales; pintar manualmente no recalcula ese conteo.
+
+### Trazados del bosque
+
+Al seleccionar **Bosque** aparece **Diseña el recorrido**, con siete miniaturas seleccionables:
+
+**Sinuoso · Vertical · Diagonal · Recodo · Bifurcación · Encrucijada · Circuito**.
+
+Las miniaturas muestran el esquema del recorrido. La semilla y la complejidad modifican sus curvas; las dimensiones se aplican directamente a la geometría. El trazado vertical une norte y sur, el sinuoso oeste y este, y los otros esquemas crean esquinas, cruces o anillos.
+
+Tres casillas permiten controlar la red:
+
+- **Generar caminos:** desactivarla elimina todos los senderos y puentes, sin desactivar el agua, la vegetación o el campamento. El campamento pasa a ser un claro de tierra.
+- **Caminos alternos:** añade un desvío conectado que vuelve a la ruta principal.
+- **Callejones sin salida:** añade dos ramales conectados cuyo extremo termina en el interior del bosque.
+
+Las dos opciones secundarias son independientes. Al apagar los caminos se deshabilitan sus controles, pero se conserva la selección para volver a activarlos. La bifurcación y el circuito pertenecen al trazado principal y no desaparecen al desactivar los caminos secundarios. En mapas muy pequeños o estrechos, algunas curvas o ramales pueden quedar próximos o fusionarse al rasterizarlos en casillas.
+
+Los árboles respetan la red completa. Los puentes se ubican en los cruces reales con el río; las conexiones de seguridad restantes usan vados arenosos, sin inventar rutas principales adicionales. Pulsa **Generar mapa** para aplicar un cambio de trazado o cantidad de cuartos. Todas estas opciones funcionan en Vanilla, Dark y Anime, y se guardan en el JSON y en el navegador.
 
 ### Tamaños y relaciones de aspecto
 
@@ -63,7 +91,7 @@ La geometría se crea directamente con el ancho y el alto solicitados. Los objet
 
 1. Elegir **Vanilla**, **Dark** o **Anime** y un escenario.
 2. Elegir un formato o introducir ancho y alto. Una casilla representa **5 pies**, aproximadamente **1,5 m**.
-3. Ajustar densidad, complejidad, agua y puntos de interés; pulsar **Generar mapa**.
+3. Elegir cantidad de cuartos o miniatura de caminos según el escenario. Ajustar densidad, complejidad, agua y puntos de interés; pulsar **Generar mapa**.
 4. Pintar terrenos o elegir objetos para colocarlos, escalarlos, girarlos y borrarlos.
 5. Guardar el **JSON editable** o exportar una imagen **PNG/JPEG**.
 
@@ -98,6 +126,8 @@ Máximo **40 megapíxeles por imagen** para contener el uso de memoria. Una comb
 
 Los proyectos nuevos se guardan como `nombre.tematica.rc.json`, con versión 2 y `config.theme`. Los archivos antiguos de versión 1 se abren como **Vanilla** si no tenían temática, **sin alterar casillas, posiciones, objetos ni semillas anteriores**. También se recupera el último mapa guardado bajo la clave anterior del navegador, y se escribe una copia migrada en `rc-map-v2`; el registro anterior no se borra.
 
+Los proyectos de versión 2 anteriores a los nuevos controles reciben valores predeterminados únicamente para las opciones ausentes: cuartos automáticos, caminos sinuosos activados y ramales opcionales desactivados. Su terreno, objetos y ediciones guardadas no se regeneran ni se modifican durante esta migración. Las nuevas opciones son `roomCount` (0 = automático), `forestPaths`, `forestPathLayout`, `forestBranches` y `forestDeadEnds`.
+
 Los archivos JSON se validan antes de renderizar: máximo 5 MB y 20.000 objetos. PNG/JPEG son imágenes planas; conservar el JSON para continuar editando. El guardado local no sustituye una copia de seguridad.
 
 ## Estructura
@@ -112,7 +142,11 @@ src/
     themes.ts                Paletas y configuración de los tres mundos
     dimensions.ts            Formatos, límites y relaciones de aspecto
     random.ts                PRNG con semilla y ruido fractal
-    generate.ts              Generación, orientación y conectividad
+    generate.ts              Coordinación de escenarios y conectividad
+    dungeon-rooms.ts         BSP automático o con cuota exacta de cuartos
+    forest-paths.ts          Trazados, curvas, rutas alternas y callejones
+    forest.ts                Terreno, puentes y decoración sobre la red
+    scenario-options.ts      Catálogo de miniaturas y validación compartida
     generate.worker.ts       Generación en Web Worker
     render.ts                Renderizado por capas y exportación temática
     storage.ts               Validación y migración de proyectos
@@ -130,7 +164,7 @@ La vista y la exportación comparten el renderizador. El ruido se muestrea en co
 
 ## Verificación y límites
 
-Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 93 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG y vista móvil. Las pruebas del motor cubren semillas, los nueve cruces de tema/escenario y formatos de hasta **1:15 / 15:1**.
+Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 93 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG y vista móvil. Las pruebas del motor cubren semillas, los nueve cruces de tema/escenario y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
 
 La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
 

@@ -1,6 +1,9 @@
 import { ASSET_SIZES, BIOMES } from './types';
 import { THEMES, THEME_IDS } from './themes';
 import { dimensionsError } from './dimensions';
+import { scenarioOptionsError } from './scenario-options';
+import { generateDungeonRooms } from './dungeon-rooms';
+import { generateForest } from './forest';
 import type { AssetId, BattleMap, MapConfig, Terrain } from './types';
 import { fbm, hashString, Random } from './random';
 
@@ -9,16 +12,11 @@ export function generateMap(input: MapConfig): BattleMap {
   const config = { ...input };
   const error = dimensionsError(config.width, config.height);
   if (error) throw new Error(error);
+  const scenarioError = scenarioOptionsError(config);
+  if (scenarioError) throw new Error(scenarioError);
   if (!THEME_IDS.includes(config.theme)) throw new Error('La temática no es válida.');
   if (!['forest', 'dungeon', 'cave'].includes(config.biome) || typeof config.seed !== 'string' || config.seed.length > 120 || !Number.isFinite(config.density) || config.density < 0 || config.density > 100 || !Number.isFinite(config.complexity) || config.complexity < 0 || config.complexity > 100) throw new Error('La configuración del mapa no es válida.');
   const { width: w, height: h, biome, seed } = config;
-  // Long forest trails follow the long axis, including portrait and narrow formats.
-  if (biome === 'forest' && h > w) {
-    const source = generateMap({ ...config, width: h, height: w });
-    return { ...source, config, terrain: Array.from({ length: w * h }, (_, i) => source.terrain[(i % w) * h + Math.floor(i / w)]),
-      objects: source.objects.map(o => ({ ...o, x: o.y, y: o.x, rotation: Math.PI / 2 - o.rotation })),
-      spawn: { x: source.spawn.y, y: source.spawn.x } };
-  }
   const rng = new Random(seed + biome + (config.theme === 'vanilla' ? '' : `-${config.theme}`));
   const terrain: Terrain[] = Array(w * h).fill(biome === 'forest' ? 'grass' : biome === 'cave' ? 'rock' : 'wall');
   const suffix = rng.pick(THEMES[config.theme].suffixes);
@@ -38,74 +36,13 @@ export function generateMap(input: MapConfig): BattleMap {
   };
 
   if (biome === 'forest') {
-    const s = hashString(seed);
-    const variation = config.complexity / 100;
-    const pathY = (x: number) => h * 0.52 + Math.sin(x / w * (4 + variation * 3.6) + s % 7) * h * (0.035 + variation * 0.155) + Math.sin(x * 0.37) * variation * 1.1;
-    const riverX = (y: number) => w * 0.67 + Math.sin(y / h * (3 + variation * 3.6) + s % 4) * Math.min(w, h * 1.6) * (0.02 + variation * 0.064);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const n = fbm(x * 0.12, y * 0.12, s);
-      const pathDistance = Math.abs(y - pathY(x));
-      if (pathDistance < 1.05 + n * 0.9) set(x, y, 'path');
-      if (config.water) {
-        const d = Math.abs(x - riverX(y));
-        if (d < 2.0 + n * 0.4) set(x, y, 'sand');
-        if (d < 1.35 + n * 0.3) set(x, y, 'water');
-      }
-    }
-    // The bridge is both an illustration and genuinely traversable terrain.
-    if (config.water) {
-      let by = Math.round(h / 2);
-      for (let i = 0; i < 8; i++) by = Math.round(pathY(riverX(by)));
-      const bx = Math.round(riverX(by));
-      for (let x = bx - 2; x <= bx + 2; x++) for (let y = by; y <= by + 1; y++) set(x, y, 'path');
-      object('bridge', bx + 0.5, by + 0.8, 1.24);
-    }
-    const camp = { x: Math.max(3, Math.min(w - 4, Math.round(w * 0.33))), y: Math.max(3, Math.min(h - 4, Math.round(pathY(w * 0.33) - 4))) }; 
-    if (config.landmarks) {
-      for (let y = camp.y - 2; y <= camp.y + 2; y++) for (let x = camp.x - 2; x <= camp.x + 2; x++) if (Math.hypot(x - camp.x, y - camp.y) < 2.6) set(x, y, 'path');
-      object('campfire', camp.x + 0.5, camp.y + 0.5, 1.05);
-      object('bedroll', camp.x - 1, camp.y + 0.8, 1, -0.3);
-      object('bedroll', camp.x + 1.4, camp.y - 0.7, 1, 0.6);
-      object('log', camp.x + 0.1, camp.y - 1.3, 0.9, 0.12);
-      object('barrels', camp.x + 1.5, camp.y + 1.5, 0.7);
-    }
-    const trees: { x: number; y: number }[] = [];
-    const count = Math.floor(w * h * config.density / 650);
-    for (let i = 0; i < count * 14 && trees.length < count; i++) {
-      const x = rng.next() * (w - 1) + 0.5, y = rng.next() * (h - 1) + 0.5;
-      if (at(Math.floor(x), Math.floor(y)) !== 'grass' || Math.abs(y - pathY(x)) < 2.1) continue;
-      if (config.landmarks && Math.hypot(x - camp.x, y - camp.y) < 4.1) continue;
-      if (trees.some(t => Math.hypot(t.x - x, t.y - y) < 1.7)) continue;
-      trees.push({ x, y });
-      object(rng.pick<AssetId>(['tree-oak', 'tree-oak', 'tree-pine', 'tree-gold']), x, y, 0.8 + rng.next() * 0.45, rng.next() * Math.PI * 2);
-    }
-    for (let i = 0; i < w * h * config.density / 370; i++) {
-      const x = rng.int(1, w - 2), y = rng.int(1, h - 2);
-      if (at(x, y) === 'grass' && !trees.some(t => Math.hypot(t.x - x, t.y - y) < 1.0) && (!config.landmarks || Math.hypot(x - camp.x, y - camp.y) > 3)) {
-        object(rng.pick<AssetId>(config.theme === 'dark' ? ['bush', 'rock', 'rock', 'bones', 'mushrooms', 'log', 'log'] : config.theme === 'anime' ? ['bush', 'flowers', 'flowers', 'flowers', 'crystal', 'mushrooms', 'rock'] : ['bush', 'bush', 'rock', 'flowers', 'flowers', 'mushrooms', 'log']), x + rng.next(), y + rng.next(), 0.65 + rng.next() * 0.5, rng.next() * 6.28);
-      } else if (at(x, y) === 'water' && rng.next() < 0.45) object('lilies', x + 0.5, y + 0.5, 0.8);
-      else if (at(x, y) === 'sand') object('reeds', x + 0.5, y + 0.5);
-    }
-    map.spawn = { x: 0, y: Math.round(pathY(0)) };
-    connectRegions(map, 'path');
+    generateForest(map, rng, object);
+    // Natural sandy fords preserve reachability without inventing unrequested roads.
+    connectRegions(map, 'sand');
   } else if (biome === 'dungeon') {
-    const rooms: Room[] = [];
-    const minSize = config.complexity > 65 ? 8 : config.complexity > 30 ? 10 : 13;
-    const split = (x: number, y: number, rw: number, rh: number, depth: number) => {
-      let vertical = rw / rh > 1.25 ? true : rh / rw > 1.25 ? false : rng.next() > 0.5;
-      if ((vertical ? rw : rh) < minSize * 2 && (vertical ? rh : rw) >= minSize * 2) vertical = !vertical;
-      const length = vertical ? rw : rh;
-      if (length >= minSize * 2 && depth < 7) {
-        const p = rng.int(minSize, length - minSize);
-        if (vertical) { split(x, y, p, rh, depth + 1); split(x + p, y, rw - p, rh, depth + 1); }
-        else { split(x, y, rw, p, depth + 1); split(x, y + p, rw, rh - p, depth + 1); }
-      } else {
-        const room: Room = { x: x + rng.int(1, 2), y: y + rng.int(1, 2), w: Math.max(4, rw - rng.int(3, 4)), h: Math.max(4, rh - rng.int(3, 4)) };
-        rooms.push(room);
-        for (let yy = room.y; yy < room.y + room.h; yy++) for (let xx = room.x; xx < room.x + room.w; xx++) set(xx, yy, 'floor');
-      }
-    };
-    split(0, 0, w, h, 0);
+    const rooms = generateDungeonRooms(config, rng);
+    map.rooms = rooms;
+    for (const room of rooms) for (let yy = room.y; yy < room.y + room.h; yy++) for (let xx = room.x; xx < room.x + room.w; xx++) set(xx, yy, 'floor');
     const center = (r: Room) => ({ x: Math.floor(r.x + r.w / 2), y: Math.floor(r.y + r.h / 2) });
     // Prim's minimum spanning tree guarantees all rooms are connected.
     const connected = new Set([0]);

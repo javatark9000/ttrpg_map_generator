@@ -1,5 +1,7 @@
 export type Biome = 'forest' | 'dungeon' | 'cave';
 export type Theme = 'vanilla' | 'dark' | 'anime';
+export type ForestPathLayout = 'meander' | 'vertical' | 'diagonal' | 'bend' | 'fork' | 'crossroads' | 'loop';
+export interface DungeonRoom { x: number; y: number; w: number; h: number }
 export type Terrain = 'grass' | 'path' | 'water' | 'floor' | 'wall' | 'rock' | 'sand';
 export type AssetId = 'tree-oak' | 'tree-pine' | 'tree-gold' | 'bush' | 'rock' | 'flowers' | 'mushrooms' | 'log' | 'lilies' | 'reeds' | 'chest' | 'barrels' | 'table' | 'books' | 'bones' | 'crystal' | 'stalagmite' | 'pillar' | 'campfire' | 'bedroll' | 'stairs' | 'rug' | 'door' | 'bridge' | 'torch' | 'crates' | 'altar';
 export interface MapObject {
@@ -20,6 +22,12 @@ export interface MapConfig {
   complexity: number;
   water: boolean;
   landmarks: boolean;
+  /** Zero retains automatic BSP room selection. */
+  roomCount: number;
+  forestPaths: boolean;
+  forestPathLayout: ForestPathLayout;
+  forestBranches: boolean;
+  forestDeadEnds: boolean;
 }
 export interface BattleMap {
   version: 2;
@@ -28,6 +36,8 @@ export interface BattleMap {
   terrain: Terrain[];
   objects: MapObject[];
   spawn: { x: number; y: number };
+  /** Original generated rooms; manual terrain edits do not redefine this metadata. */
+  rooms?: DungeonRoom[];
 }
 export interface RenderOptions { grid: boolean; gridOpacity: number; atmosphere: boolean }
 export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: string; icon: string }> = {
@@ -35,7 +45,7 @@ export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: str
   dungeon: { name: 'Mazmorra', subtitle: 'Secretos bajo la piedra', prefix: 'La cripta', icon: 'castle' },
   cave: { name: 'Caverna', subtitle: 'Ecos de otro mundo', prefix: 'La caverna', icon: 'mountain' },
 };
-export const DEFAULT_CONFIG: MapConfig = { biome: 'forest', theme: 'vanilla', width: 40, height: 30, seed: 'RC-7429', density: 62, complexity: 55, water: true, landmarks: true };
+export const DEFAULT_CONFIG: MapConfig = { biome: 'forest', theme: 'vanilla', width: 40, height: 30, seed: 'RC-7429', density: 62, complexity: 55, water: true, landmarks: true, roomCount: 0, forestPaths: true, forestPathLayout: 'meander', forestBranches: false, forestDeadEnds: false };
 export const ASSETS: { id: AssetId; name: string; category: 'nature' | 'adventure'; size: number }[] = [
   { id: 'tree-oak', name: 'Roble', category: 'nature', size: 2.8 },
   { id: 'tree-pine', name: 'Pino', category: 'nature', size: 2.4 },

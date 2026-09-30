@@ -1,0 +1,32 @@
+@layer components {
+  .scenario-options { margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); --preview-ground: #778456; --preview-road: #b4a273; }
+  .scenario-options > .section-heading { margin-bottom: 9px; }
+  .scenario-options > .section-heading > .icon { width: 15px; height: 15px; color: var(--gold-muted); }
+  .scenario-hint { margin: 9px 0 10px; color: var(--muted); font-size: 9px; line-height: 1.7; }
+  .scenario-hint.subtle { opacity: .8; font-size: 8px; margin-bottom: 0; }
+  #room-count { margin-top: 13px; }
+  .path-layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 9px 0 10px; }
+  .path-card { display: flex; flex-direction: column; align-items: stretch; border: 1px solid #82947630; border-radius: 7px; background: #ffffff04; overflow: hidden; padding: 4px 4px 7px; gap: 5px; text-align: center; color: var(--muted); transition: border-color .15s, background .15s; }
+  .path-card:hover { border-color: var(--gold-muted); background: #ffffff0b; }
+  .path-card.selected { color: var(--gold); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 9%, transparent); }
+  .path-card:disabled { opacity: .35; cursor: not-allowed; }
+  .path-card > span { font-size: 8px; }
+  .path-card > svg { display: block; width: 100%; height: auto; border-radius: 4px; }
+  .path-thumb-ground { fill: var(--preview-ground); opacity: .65; }
+  .path-thumb-grid { fill: none; stroke: #12221b; stroke-width: .5; opacity: .16; }
+  .path-thumb-trees { fill: #293e31; opacity: .35; }
+  .path-thumb-edge { fill: none; stroke: #293e3170; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+  .path-thumb-road { fill: none; stroke: var(--preview-road); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+  .scenario-check { display: flex; align-items: center; gap: 5px; min-height: 39px; cursor: pointer; color: var(--md-sys-color-on-surface); font-size: 10px; line-height: 1.5; }
+  .scenario-check md-checkbox { flex: none; margin-left: -9px; --md-checkbox-container-size: 16px; }
+  .scenario-check small { display: block; color: var(--muted); font-size: 8px; margin-top: 2px; }
+  .scenario-summary { flex: none; font-size: 9px; border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); padding: 3px 6px; color: var(--gold); border-radius: 4px; white-space: nowrap; }
+}
+@layer responsive {
+  @media (max-width: 1150px) { .scenario-summary { font-size: 8px; } }
+  @media (max-width: 759px) {
+    .scenario-options { margin-top: 18px; padding-top: 15px; }
+    .path-card { padding: 5px 5px 8px; }
+    .scenario-summary { display: none; }
+  }
+}
