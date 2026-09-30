@@ -32,7 +32,7 @@ Publicación: servir `dist/` desde un alojamiento estático con HTTPS. Fuentes, 
 | **Dark** | Fantasía medieval cruda: árboles retorcidos, follaje escaso, hierro, madera agrietada, telas reparadas, ceniza, piedra erosionada y luz de antorchas. |
 | **Anime** | Fantasía japonesa isekai de reinos: sombreado por celdas, cerezos, vegetación luminosa, cristales lilas, heráldica, pociones y ornamentos arcanos. Arte original, sin personajes o emblemas de franquicias. |
 
-Cada tema contiene **los mismos 27 objetos y 4 texturas de terreno**: **93 SVG temáticos** en total. No son filtros CSS sobre una única imagen: las variantes tienen sus propios SVG, detalles, materiales y, en los árboles, nuevas siluetas.
+Cada tema contiene **los mismos 47 objetos y 4 texturas de terreno**: **153 SVG temáticos** en total. No son filtros CSS sobre una única imagen: las variantes tienen sus propios SVG, detalles, materiales y, en los árboles, nuevas siluetas.
 
 El selector de temática está siempre disponible sobre los paneles. Al cambiarlo:
 
@@ -43,13 +43,36 @@ El selector de temática está siempre disponible sobre los paneles. Al cambiarl
 
 ## Escenarios y algoritmos
 
-Los tres escenarios están disponibles en cada temática:
+Los siete escenarios están disponibles en cada temática:
 
 - **Bosque:** ruido fractal, vegetación con separación mínima, redes de senderos configurables, río, puentes orientados según los cruces y campamento. El trazado elegido conserva su orientación incluso en mapas verticales; no se estira ni se gira una imagen horizontal.
 - **Mazmorra:** habitaciones por BSP con cantidad automática o exacta, particiones adaptadas al espacio disponible y conexión mediante árbol de expansión mínima. Puertas, antorchas, columnas, cofres y mobiliario.
 - **Caverna:** autómatas celulares, conexión de regiones mediante flood fill, lagunas, rocas y cristales.
+- **Ruinas:** recintos de piedra parcialmente destruidos, arcos, columnas rotas, escombros y vegetación. El control **Deterioro** determina la pérdida de muros y la recuperación del suelo por la hierba.
+- **Pueblo:** parcelas con casas y comercios techados, puertas accesibles, calles, plazas, pozos y mercados. Tres trazados: **Plaza central**, **Calles en cuadrícula** y **Calle principal**. La densidad cambia la ocupación de las parcelas; con agua activada se reserva un estanque cuando el tamaño lo permite.
+- **Montaña:** pasos sinuosos entre roca sólida, grava, vegetación alpina, campamentos y lagunas. **Nieve en las cumbres** permite alternar un paisaje nevado y otro sin nieve.
+- **Edificios:** interiores sin techo con distribución y mobiliario específicos del tipo seleccionado. Los formatos muy alargados orientan el plano sobre el eje largo.
 
-La geometría se crea directamente con el ancho y el alto solicitados. Los objetos conservan sus proporciones. La conectividad del **terreno** generado se comprueba en los tres escenarios; las ilustraciones son decorativas y no bloquean navegación.
+La geometría se crea directamente con el ancho y el alto solicitados. Los objetos conservan sus proporciones. La conectividad del **terreno** generado se comprueba en los siete escenarios; las ilustraciones son decorativas y no bloquean navegación.
+
+### Tipos de edificio
+
+Seleccionar **Edificios → Tipo de edificio**, elegir el tamaño y pulsar **Generar mapa**. El botón **Interior compacto · 24 × 18** prepara un tamaño recomendado sin reemplazar el mapa hasta generar.
+
+| Tipo | Distribución y elementos |
+| --- | --- |
+| **Casa** | Sala común, estudio, dormitorios y cocina; subdivisiones adicionales en planos amplios. |
+| **Taberna** | Salón con mesas y bancos, barra, cocina y despensa. |
+| **Posada** | Pasillo de acceso, habitaciones amuebladas y recepción cuando hay espacio. |
+| **Herrería** | Taller de piedra, fragua, fuego animado, yunques y armero. |
+| **Templo** | Nave con bancos y columnas, santuario, altar animado y estatuas. |
+| **Biblioteca** | Pasillos de estanterías y zona de lectura con mesas y libros. |
+| **Almacén** | Zonas de carga, cajas, barriles, sacos y corredor de servicio. |
+| **Cuartel** | Camas, armería y sala de oficiales. |
+
+Se adaptan a los límites de 8–120 casillas por lado; en planos pequeños la distribución se simplifica. El agua procedural no se aplica a edificios o mazmorras, pero puede pintarse manualmente. Los interiores domésticos usan madera; herrerías, templos y almacenes usan piedra. Los puntos de interés controlan los elementos principales y las luces; las puertas estructurales permanecen. La cantidad exacta de cuartos sigue siendo una opción exclusiva de Mazmorra.
+
+Los pueblos son **vistas exteriores**, no una colección de interiores interactivos: no se abre automáticamente otro mapa al pulsar un tejado. Para un interior detallado se genera un escenario Edificios por separado. La conectividad corresponde al terreno; muebles y tejados son ilustraciones. La montaña no simula alturas físicas: nieve y grava son transitables, mientras roca sólida, muros y agua no lo son.
 
 ### Cantidad de cuartos en mazmorras
 
@@ -91,7 +114,7 @@ Los árboles respetan la red completa. Los puentes se ubican en los cruces reale
 
 1. Elegir **Vanilla**, **Dark** o **Anime** y un escenario.
 2. Elegir un formato o introducir ancho y alto. Una casilla representa **5 pies**, aproximadamente **1,5 m**.
-3. Elegir cantidad de cuartos o miniatura de caminos según el escenario. Ajustar densidad, complejidad, agua y puntos de interés; pulsar **Generar mapa**.
+3. Elegir las opciones del escenario: cantidad de cuartos, caminos, deterioro, trazado del pueblo, nieve o tipo de edificio. Ajustar densidad, complejidad, agua y puntos de interés; pulsar **Generar mapa**.
 4. Pintar terrenos o elegir objetos para colocarlos, escalarlos, girarlos y borrarlos.
 5. Guardar el **JSON editable** o exportar una imagen **PNG/JPEG** o un **GIF animado**.
 
@@ -99,7 +122,8 @@ Las semillas nuevas comienzan con **`RC-`**; la inicial es `RC-7429`. El dado pr
 
 ### Editor y atajos
 
-- Seis terrenos, tres tamaños de pincel, 27 objetos por temática.
+- Diez terrenos: hierba, sendero, agua, piedra, muro, roca sólida, arena, madera, nieve y grava; tres tamaños de pincel.
+- 47 objetos por temática, con filtros Naturaleza, Aventura y Construcción.
 - Zoom, desplazamiento, coordenadas y ajuste a pantalla.
 - Deshacer/rehacer, hasta 30 pasos; regenerar o abrir otro proyecto reinicia el historial.
 - Guardado automático del último mapa en este navegador.
@@ -120,7 +144,7 @@ Las semillas nuevas comienzan con **`RC-`**; la inicial es `RC-7429`. El dado pr
 
 ## Agua, magia y vegetación animadas
 
-Las animaciones comparten un **bucle determinista de 2,4 segundos**, con fases distintas por objeto para evitar movimientos sincronizados. Funcionan en los tres escenarios y las tres temáticas, también con agua pintada y objetos colocados manualmente.
+Las animaciones comparten un **bucle determinista de 2,4 segundos**, con fases distintas por objeto para evitar movimientos sincronizados. Funcionan en los siete escenarios y las tres temáticas, también con agua pintada y objetos colocados manualmente.
 
 | Elemento | Movimiento |
 |---|---|
@@ -162,7 +186,7 @@ La codificación se realiza localmente mediante `gifenc` (MIT) en un **Web Worke
 
 Los proyectos nuevos se guardan como `nombre.tematica.rc.json`, con versión 2 y `config.theme`. Los archivos antiguos de versión 1 se abren como **Vanilla** si no tenían temática, **sin alterar casillas, posiciones, objetos ni semillas anteriores**. También se recupera el último mapa guardado bajo la clave anterior del navegador, y se escribe una copia migrada en `rc-map-v2`; el registro anterior no se borra.
 
-Los proyectos de versión 2 anteriores a los nuevos controles reciben valores predeterminados únicamente para las opciones ausentes: cuartos automáticos, caminos sinuosos activados y ramales opcionales desactivados. Su terreno, objetos y ediciones guardadas no se regeneran ni se modifican durante esta migración. Las nuevas opciones son `roomCount` (0 = automático), `forestPaths`, `forestPathLayout`, `forestBranches` y `forestDeadEnds`.
+Los proyectos de versión 2 anteriores a los nuevos controles reciben valores predeterminados únicamente para las opciones ausentes: cuartos automáticos, caminos sinuosos activados y ramales opcionales desactivados. Su terreno, objetos y ediciones guardadas no se regeneran ni se modifican durante esta migración. Las opciones son `roomCount` (0 = automático), `forestPaths`, `forestPathLayout`, `forestBranches` y `forestDeadEnds`. La ampliación añade `buildingType` (por defecto `house`), `ruinDecay` (55), `villageLayout` (`square`) y `mountainSnow` (true); los campos ausentes se completan sin regenerar el mapa. Los valores desconocidos o fuera de rango se rechazan.
 
 Los archivos JSON se validan antes de renderizar: máximo 5 MB y 20.000 objetos. PNG/JPEG/GIF no conservan capas editables; conservar el JSON para continuar editando. El guardado local no sustituye una copia de seguridad.
 
@@ -182,6 +206,9 @@ src/
     dungeon-rooms.ts         BSP automático o con cuota exacta de cuartos
     forest-paths.ts          Trazados, curvas, rutas alternas y callejones
     forest.ts                Terreno, puentes y decoración sobre la red
+    landscapes.ts            Ruinas, pueblos y montaña
+    buildings.ts             Ocho tipos de interiores y su mobiliario
+    scenario-painter.ts      Primitivas de pintura y colocación acotada
     scenario-options.ts      Catálogo de miniaturas y validación compartida
     generate.worker.ts       Generación en Web Worker
     render.ts                Renderizado por capas y exportación temática
@@ -193,12 +220,13 @@ src/
     gif.worker.ts            Codificación fuera del hilo principal
     storage.ts               Validación y migración de proyectos
 public/assets/
-  vanilla/                   31 SVG originales, preservados exactamente
-  dark/                      31 variantes medievales oscuras
-  anime/                     31 variantes isekai
+  vanilla/                   51 SVG; los 31 originales permanecen intactos
+  dark/                      51 variantes medievales oscuras
+  anime/                     51 variantes isekai
   *.svg                      Originales conservados para compatibilidad
 scripts/
   create-assets.mjs          Fuente original de Vanilla
+  create-expansion-assets.mjs 20 objetos nuevos de arquitectura y paisaje
   create-theme-assets.mjs    Variantes Dark/Anime y copia de Vanilla
 ```
 
@@ -206,8 +234,10 @@ La vista y la exportación comparten el renderizador. El ruido se muestrea en co
 
 ## Verificación y límites
 
-Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 93 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG/GIF y vista móvil. Las pruebas de animación verifican pausa, movimiento reducido, ondas bajo los puentes, ciclos cerrados, cancelación y recuperación ante errores del worker. También comprueban cada objeto animado en las tres temáticas, las bases inmóviles de las plantas, la oclusión por estructuras, la bioluminiscencia opcional y la conservación de los movimientos nuevos en GIF. Los GIF se decodifican con un lector independiente (`omggif`) para comprobar dimensiones, fotogramas distintos, duración y repetición infinita. Las pruebas del motor cubren semillas, los nueve cruces de tema/escenario y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
+Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 153 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG/GIF y vista móvil. Las pruebas de animación verifican pausa, movimiento reducido, ondas bajo los puentes, ciclos cerrados, cancelación y recuperación ante errores del worker. También comprueban cada objeto animado en las tres temáticas, las bases inmóviles de las plantas, la oclusión por estructuras, la bioluminiscencia opcional y la conservación de los movimientos nuevos en GIF. Los GIF se decodifican con un lector independiente (`omggif`) para comprobar dimensiones, fotogramas distintos, duración y repetición infinita. Las pruebas del motor cubren semillas, los 21 cruces de tema/escenario y los ocho tipos de edificio en cada temática y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
 
-La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
+Los nuevos controles, terrenos, objetos y tipos de edificio también se verifican en guardado/recarga, edición, historial, exportación PNG/GIF y móvil.
+
+La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras o edificios, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
 
 `@material/web` es Material Web, no Angular Material; considerar su estado de mantenimiento al actualizar dependencias. Las fuentes Cormorant Garamond y DM Sans mantienen sus licencias originales y se sirven mediante Fontsource.

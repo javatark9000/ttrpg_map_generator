@@ -1,9 +1,11 @@
-import { ASSET_SIZES, BIOMES } from './types';
+import { ASSET_SIZES, BIOMES, BIOME_IDS, BUILDING_TYPES } from './types';
 import { THEMES, THEME_IDS } from './themes';
 import { dimensionsError } from './dimensions';
 import { scenarioOptionsError } from './scenario-options';
 import { generateDungeonRooms } from './dungeon-rooms';
 import { generateForest } from './forest';
+import { generateRuins, generateVillage, generateMountain } from './landscapes';
+import { generateBuilding } from './buildings';
 import type { AssetId, BattleMap, MapConfig, Terrain } from './types';
 import { fbm, hashString, Random } from './random';
 
@@ -15,12 +17,18 @@ export function generateMap(input: MapConfig): BattleMap {
   const scenarioError = scenarioOptionsError(config);
   if (scenarioError) throw new Error(scenarioError);
   if (!THEME_IDS.includes(config.theme)) throw new Error('La temática no es válida.');
-  if (!['forest', 'dungeon', 'cave'].includes(config.biome) || typeof config.seed !== 'string' || config.seed.length > 120 || !Number.isFinite(config.density) || config.density < 0 || config.density > 100 || !Number.isFinite(config.complexity) || config.complexity < 0 || config.complexity > 100) throw new Error('La configuración del mapa no es válida.');
+  if (!BIOME_IDS.includes(config.biome) || typeof config.seed !== 'string' || config.seed.length > 120 || !Number.isFinite(config.density) || config.density < 0 || config.density > 100 || !Number.isFinite(config.complexity) || config.complexity < 0 || config.complexity > 100) throw new Error('La configuración del mapa no es válida.');
   const { width: w, height: h, biome, seed } = config;
+  // Narrow building plans follow the long axis; objects and entry rotate with it.
+  if (biome === 'building' && w > h * 1.5) {
+    const source = generateMap({ ...config, width: h, height: w });
+    return { ...source, config, terrain: Array.from({ length: w*h }, (_,i) => source.terrain[(i%w)*h+Math.floor(i/w)]),
+      objects: source.objects.map(o => ({...o,x:o.y,y:o.x,rotation:Math.PI/2-o.rotation})), spawn:{x:source.spawn.y,y:source.spawn.x} };
+  }
   const rng = new Random(seed + biome + (config.theme === 'vanilla' ? '' : `-${config.theme}`));
   const terrain: Terrain[] = Array(w * h).fill(biome === 'forest' ? 'grass' : biome === 'cave' ? 'rock' : 'wall');
   const suffix = rng.pick(THEMES[config.theme].suffixes);
-  const map: BattleMap = { version: 2, config, name: `${BIOMES[biome].prefix} ${suffix}`, terrain, objects: [], spawn: { x: 1, y: 1 } };
+  const map: BattleMap = { version: 2, config, name: `${biome === 'building' ? BUILDING_TYPES[config.buildingType].prefix : BIOMES[biome].prefix} ${suffix}`, terrain, objects: [], spawn: { x: 1, y: 1 } };
   const at = (x: number, y: number) => terrain[y * w + x];
   const set = (x: number, y: number, t: Terrain) => { if (x >= 0 && y >= 0 && x < w && y < h) terrain[y * w + x] = t; };
   const object = (asset: AssetId, x: number, y: number, scale = 1, rotation = 0) => {
@@ -35,7 +43,13 @@ export function generateMap(input: MapConfig): BattleMap {
     }
   };
 
-  if (biome === 'forest') {
+  if (biome === 'ruins' || biome === 'village' || biome === 'mountain' || biome === 'building') {
+    if (biome === 'ruins') generateRuins(map,rng,object);
+    else if (biome === 'village') generateVillage(map,rng,object);
+    else if (biome === 'mountain') generateMountain(map,rng,object);
+    else generateBuilding(map,rng,object);
+    connectRegions(map, biome === 'building' ? (['smithy','temple','warehouse'].includes(config.buildingType) ? 'floor' : 'wood') : biome === 'village' ? 'path' : 'gravel');
+  } else if (biome === 'forest') {
     generateForest(map, rng, object);
     // Natural sandy fords preserve reachability without inventing unrequested roads.
     connectRegions(map, 'sand');

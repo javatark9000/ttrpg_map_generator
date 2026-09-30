@@ -1,9 +1,9 @@
-import { ASSETS } from './types';
+import { ASSETS, BIOME_IDS } from './types';
 import { THEME_IDS } from './themes';
 import { dimensionsError } from './dimensions';
 import { SCENARIO_DEFAULTS, scenarioOptionsError } from './scenario-options';
 import type { BattleMap, Terrain } from './types';
-const terrainTypes = new Set<Terrain>(['grass', 'path', 'water', 'floor', 'wall', 'rock', 'sand']);
+const terrainTypes = new Set<Terrain>(['grass', 'path', 'water', 'floor', 'wall', 'rock', 'sand', 'wood', 'snow', 'gravel']);
 const assetTypes = new Set<string>(ASSETS.map(a => a.id));
 export function parseMap(text: string): BattleMap {
   if (text.length > 5_000_000) throw new Error('El archivo es demasiado grande (máximo 5 MB).');
@@ -20,7 +20,7 @@ export function parseMap(text: string): BattleMap {
   const m = parsed as BattleMap;
   const c = m?.config;
   const finite = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
-  if (m?.version !== 2 || !c || !THEME_IDS.includes(c.theme) || !['forest', 'cave', 'dungeon'].includes(c.biome) || dimensionsError(c.width, c.height) || typeof c.seed !== 'string' || c.seed.length > 120 || typeof c.water !== 'boolean' || typeof c.landmarks !== 'boolean' || !finite(c.density) || c.density < 0 || c.density > 100 || !finite(c.complexity) || c.complexity < 0 || c.complexity > 100 || typeof m.name !== 'string' || m.name.length > 200) throw new Error('El archivo no es un proyecto RC válido.');
+  if (m?.version !== 2 || !c || !THEME_IDS.includes(c.theme) || !BIOME_IDS.includes(c.biome) || dimensionsError(c.width, c.height) || typeof c.seed !== 'string' || c.seed.length > 120 || typeof c.water !== 'boolean' || typeof c.landmarks !== 'boolean' || !finite(c.density) || c.density < 0 || c.density > 100 || !finite(c.complexity) || c.complexity < 0 || c.complexity > 100 || typeof m.name !== 'string' || m.name.length > 200) throw new Error('El archivo no es un proyecto RC válido.');
   const scenarioError = scenarioOptionsError(c);
   if (scenarioError) throw new Error(scenarioError);
   if (m.rooms !== undefined && (!Array.isArray(m.rooms) || m.rooms.length > 256 || m.rooms.some(r => !r || ![r.x,r.y,r.w,r.h].every(Number.isInteger) || r.x < 1 || r.y < 1 || r.w < 4 || r.h < 4 || r.x + r.w >= c.width || r.y + r.h >= c.height))) throw new Error('Los datos de cuartos no son válidos.');

@@ -1,0 +1,16 @@
+@layer components {
+  .biome-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+  .biome-list .biome-card { min-height: 63px; padding: 7px; gap: 7px; }
+  .biome-list .biome-art { width: 33px; height: 38px; }
+  .biome-list .biome-info strong { font-size: 11px; }
+  .biome-list .biome-info small, .biome-list .biome-check { display: none; }
+  .biome-list .biome-card:last-child { grid-column: 1 / -1; }
+  .biome-list .biome-card:last-child .biome-info small { display: block; font-size: 9px; }
+  .biome-list .biome-card:last-child .biome-check { display: flex; margin-left: auto; }
+  .building-description { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .building-description img { width: 47px; height: 47px; object-fit: contain; flex: none; }
+  .building-description p { color: var(--muted); font-size: 10px; line-height: 1.6; margin: 0; }
+  .asset-filters { flex-wrap: wrap; }
+  .asset-filters button { padding: 7px 8px; }
+  #mountain-options .toggle-row > span { font-size: 10px; }
+}

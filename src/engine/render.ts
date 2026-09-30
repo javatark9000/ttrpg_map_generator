@@ -1,4 +1,4 @@
-import { ASSETS } from './types';
+import { ASSETS, OUTDOOR_BIOMES } from './types';
 import type { BattleMap, MapObject, RenderOptions, Terrain, Theme } from './types';
 import { assetUrl, THEMES, THEME_IDS } from './themes';
 import { fbm, hashString, Random } from './random';
@@ -105,10 +105,11 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
   };
   const width = canvas.width, height = canvas.height, seed = hashString(map.config.seed);
   const rng = new Random(map.config.seed + '-art');
-  const forest = biome === 'forest', cave = biome === 'cave';
-  const base = palette.terrain[forest ? 'grass' : cave ? 'rock' : 'wall'];
+  const forest = OUTDOOR_BIOMES.includes(biome), cave = biome === 'cave';
+  const baseTerrain = forest ? biome === 'mountain' ? 'gravel' : 'grass' : cave ? 'rock' : 'wall';
+  const base = palette.terrain[baseTerrain];
   colorField(ctx, width, height, seed, ...base, tile);
-  texture(ctx, forest ? 'grass' : 'stone', width, height, theme === 'anime' ? .35 : theme === 'dark' ? .65 : .52, tile, theme);
+  texture(ctx, baseTerrain === 'grass' ? 'grass' : 'stone', width, height, theme === 'anime' ? .35 : theme === 'dark' ? .65 : .52, tile, theme);
 
   if (!forest) {
     const floor = terrainPath(map, t => t !== 'wall' && t !== 'rock', tile, cave);
@@ -146,6 +147,9 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
     { type: 'grass', dark: [66, 85, 51], light: [137, 149, 91], texture: 'grass' },
     { type: 'sand', dark: [134, 132, 86], light: [176, 169, 112], texture: 'soil' },
     { type: 'path', dark: [136, 124, 82], light: [187, 169, 114], texture: 'soil' },
+    { type: 'wood', dark: [101,70,44], light: [172,136,85], texture: 'soil' },
+    { type: 'snow', dark: [165,181,179], light: [236,235,215], texture: 'stone' },
+    { type: 'gravel', dark: [95,100,89], light: [152,147,127], texture: 'stone' },
   ];
   if (forest) groundLayers.push(
     { type: 'floor', dark: [100, 106, 88], light: [155, 151, 119], texture: 'stone' },
@@ -153,12 +157,31 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
     { type: 'rock', dark: [48, 64, 59], light: [91, 105, 88], texture: 'stone' },
   );
   for (const layer of groundLayers) {
-    if (layer.type === 'grass' && forest) continue;
+    if (layer.type === baseTerrain) continue;
     if (!map.terrain.includes(layer.type)) continue;
-    const outline = terrainPath(map, t => t === layer.type, tile, layer.type !== 'wall' && layer.type !== 'floor');
+    const outline = terrainPath(map, t => t === layer.type, tile, layer.type !== 'wall' && layer.type !== 'floor' && layer.type !== 'wood');
     ctx.strokeStyle = ink(layer.type === 'path' ? '#a09b6170' : '#8e9a6650', '#4d493988', '#a5c78d88'); ctx.lineWidth = tile * .26; ctx.stroke(outline);
-    const colors = theme === 'vanilla' ? [layer.dark, layer.light] as const : palette.terrain[layer.type];
-    ctx.save(); ctx.clip(outline); colorField(ctx, width, height, seed + 2, colors[0], colors[1], tile); texture(ctx, layer.texture, width, height, .8, tile, theme); ctx.restore();
+    const colors = biome === 'mountain' && layer.type === 'rock' ? palette.mountainRock : biome === 'ruins' && layer.type === 'wall' ? palette.terrain.floor : theme === 'vanilla' ? [layer.dark, layer.light] as const : palette.terrain[layer.type];
+    ctx.save(); ctx.clip(outline); colorField(ctx, width, height, seed + 2, colors[0], colors[1], tile); texture(ctx, layer.texture, width, height, layer.type === 'snow' ? .16 : .8, tile, theme);
+    if (layer.type === 'wood') {
+      ctx.strokeStyle = ink('#523d2b80','#201c1988','#805a5577');ctx.lineWidth=tile*.025;ctx.beginPath();
+      for(let row=0;row<h*2;row++) {
+        const y=row*tile*.5;ctx.moveTo(0,y);ctx.lineTo(width,y);
+        for(let x=(row%2)*tile;x<width;x+=tile*2){ctx.moveTo(x,y);ctx.lineTo(x,y+tile*.5);}
+      }
+      ctx.stroke();
+    }
+    if (biome === 'ruins' && layer.type === 'wall') {
+      ctx.strokeStyle=ink('#29372f99','#161920aa','#494a7299');ctx.lineWidth=tile*.25;ctx.stroke(outline);
+      ctx.strokeStyle=ink('#d0cbb099','#a49d8899','#e5e0f699');ctx.lineWidth=tile*.07;ctx.stroke(outline);
+      ctx.strokeStyle=ink('#4b574575','#25252d88','#6f729a77');ctx.lineWidth=tile*.035;
+      for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(map.terrain[y*w+x]==='wall')ctx.strokeRect(x*tile+1,y*tile+1,tile-2,tile-2);
+    }
+    if (biome === 'mountain' && layer.type === 'rock') {
+      ctx.strokeStyle=ink('#333d4460','#151c2677','#40588477');ctx.lineWidth=tile*.75;ctx.stroke(outline);
+      ctx.strokeStyle=ink('#d4d4c688','#959b9966','#d3e4ed66');ctx.lineWidth=tile*.12;ctx.stroke(outline);
+    }
+    ctx.restore();
   }
   if (map.terrain.includes('water')) {
     const water = terrainPath(map, t => t === 'water', tile);
@@ -176,7 +199,7 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
     const x = rng.next() * width, y = rng.next() * height;
     const t = map.terrain[Math.floor(y / tile) * w + Math.floor(x / tile)];
     if (t === 'water' || t === 'wall' || t === 'rock') continue;
-    ctx.fillStyle = rng.next() > .5 ? '#ded0a744' : '#2d432d38';
+    ctx.fillStyle = t === 'snow' ? '#f9fdff77' : rng.next() > .5 ? '#ded0a744' : '#2d432d38';
     ctx.beginPath(); ctx.ellipse(x, y, tile * (.007 + rng.next() * .025), tile * .013, rng.next() * 6, 0, Math.PI * 2); ctx.fill();
     if (t === 'grass' && rng.next() > .35) {
       ctx.strokeStyle = '#344c3544'; ctx.lineWidth = tile * .018; ctx.beginPath(); ctx.moveTo(x - tile * .05, y - tile * .06); ctx.lineTo(x, y); ctx.lineTo(x + tile * .025, y - tile * .1); ctx.stroke();
@@ -207,7 +230,7 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
     vignette.addColorStop(0, '#15271b00'); vignette.addColorStop(.55, ink('#14291d08', '#14121e18', '#b1b7f008')); vignette.addColorStop(1, ink('#091c2055', '#08081199', '#38447433')); 
     ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
     // Broad sunbeams are deliberately subtle: the grid remains legible.
-    if (forest) {
+    if (forest && biome !== 'mountain') {
       ctx.save(); ctx.globalCompositeOperation = 'soft-light';
       const beam = ctx.createLinearGradient(0, 0, width, height); beam.addColorStop(0, ink('#ece0ac30', '#a7b6cc20', '#fff3d570')); beam.addColorStop(1, '#ece0ac00'); ctx.fillStyle = beam;
       ctx.beginPath(); ctx.moveTo(width * .1, 0); ctx.lineTo(width * .24, 0); ctx.lineTo(width * .9, height); ctx.lineTo(width * .54, height); ctx.closePath(); ctx.fill(); ctx.restore();

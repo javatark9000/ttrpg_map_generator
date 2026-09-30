@@ -29,7 +29,7 @@ describe.each(THEME_IDS)('%s world', theme => {
       }
     }
   });
-  it('has all 27 props and 4 terrain textures as self-contained SVGs', () => {
+  it('has all catalog props and 4 terrain textures as self-contained SVGs', () => {
     for (const id of [...ASSETS.map(a => a.id), 'terrain-grass', 'terrain-soil', 'terrain-stone', 'terrain-water']) {
       const source = readFileSync(`public/assets/${theme}/${id}.svg`, 'utf8');
       expect(source).toContain('<svg'); expect(source).toContain('viewBox="0 0 128 128"');

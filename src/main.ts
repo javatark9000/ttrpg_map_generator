@@ -15,11 +15,11 @@ import '@material/web/slider/slider.js';
 import '@material/web/switch/switch.js';
 import '@material/web/checkbox/checkbox.js';
 import '@material/web/progress/circular-progress.js';
-import { ASSETS, ASSET_SIZES, BIOMES, DEFAULT_CONFIG } from './engine/types';
-import type { AssetId, BattleMap, Biome, MapConfig, RenderOptions, Terrain, Theme, ForestPathLayout } from './engine/types';
+import { ASSETS, ASSET_SIZES, BIOMES, BUILDING_TYPES, DEFAULT_CONFIG } from './engine/types';
+import type { AssetId, BattleMap, Biome, MapConfig, RenderOptions, Terrain, Theme, ForestPathLayout, BuildingType, VillageLayout } from './engine/types';
 import { THEMES, THEME_IDS, assetUrl } from './engine/themes';
 import { SIZE_PRESETS, MIN_SIDE, MAX_SIDE, dimensionsError, aspectRatio } from './engine/dimensions';
-import { PATH_LAYOUTS, MAX_ROOMS, maxRoomCount, roomCountError, scenarioOptionsError } from './engine/scenario-options';
+import { PATH_LAYOUTS, VILLAGE_LAYOUTS, MAX_ROOMS, maxRoomCount, roomCountError, scenarioOptionsError } from './engine/scenario-options';
 import { freshSeed } from './engine/random';
 import { loadAssets, renderMap } from './engine/render';
 import { createAnimatedScene, hasAnimation } from './engine/animation';
@@ -32,6 +32,7 @@ import './style.css';
 import './themes.css';
 import './scenario-controls.css';
 import './animation.css';
+import './expanded-worlds.css';
 
 type Field = HTMLElement & { value: string; disabled: boolean };
 type Toggle = HTMLElement & { selected: boolean; disabled: boolean };
@@ -59,7 +60,26 @@ $('#app').innerHTML = `
     <div class="panel-tabs" role="tablist" aria-label="Panel del editor"><button id="tab-world" class="panel-tab active" role="tab" aria-selected="true" aria-controls="world-panel">${icon('map')} Crear mundo</button><button id="tab-assets" class="panel-tab" role="tab" aria-selected="false" aria-controls="assets-panel">${icon('layers')} Objetos <span>${ASSETS.length}</span></button></div>
     <section id="world-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-world">
       <div class="section-heading"><h2>Elige un escenario</h2><span class="step-number">01</span></div>
-      <div class="biome-list">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}"><span class="biome-art ${key}"><img src="${assetUrl(key === 'forest' ? 'tree-oak' : key === 'cave' ? 'crystal' : 'pillar', 'vanilla')}" alt=""/></span><span class="biome-info"><strong>${b.name}</strong><small>${b.subtitle}</small></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
+      <div class="biome-list">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}" title="${b.subtitle}"><span class="biome-art ${key}"><img src="${assetUrl(b.art, 'vanilla')}" alt=""/></span><span class="biome-info"><strong>${b.name}</strong><small>${b.subtitle}</small></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
+      <section id="building-options" class="scenario-options" aria-label="Tipo de edificio" hidden>
+        <div class="section-heading"><h2>Un interior con historia</h2>${icon('house')}</div>
+        <md-outlined-select id="building-type" label="Tipo de edificio">${Object.entries(BUILDING_TYPES).map(([id,b])=>option(id,b.name,id==='house')).join('')}</md-outlined-select>
+        <div class="building-description"><img id="building-type-preview" src="${assetUrl('bed','vanilla')}" alt=""/><p id="building-description">${BUILDING_TYPES.house.description}</p></div>
+        <p class="scenario-hint">Interiores sin techo, con puertas y mobiliario. En formatos pequeños la distribución se simplifica. Pulsa Generar mapa para aplicar el tipo.</p><md-text-button id="compact-building">Interior compacto · 24 × 18</md-text-button>
+      </section>
+      <section id="ruins-options" class="scenario-options" aria-label="Deterioro de las ruinas" hidden>
+        <div class="slider-label"><label id="decay-label">Deterioro</label><output id="decay-value">55<span>%</span></output></div>
+        <md-slider id="ruin-decay" aria-labelledby="decay-label" min="0" max="100" value="55" step="1"></md-slider><div class="range-labels"><span>Muros en pie</span><span>Derrumbado</span></div>
+        <p class="scenario-hint">Recintos de piedra, accesos derruidos, escombros y vegetación que recupera el terreno.</p>
+      </section>
+      <section id="village-options" class="scenario-options" aria-label="Distribución del pueblo" hidden>
+        <md-outlined-select id="village-layout" label="Trazado del pueblo">${VILLAGE_LAYOUTS.map(l=>option(l.id,l.name,l.id==='square')).join('')}</md-outlined-select>
+        <p class="scenario-hint">Vista exterior con tejados, calles y plazas. La densidad cambia la ocupación de las parcelas. Para un interior detallado, elige Edificios.</p>
+      </section>
+      <section id="mountain-options" class="scenario-options" aria-label="Paisaje de montaña" hidden>
+        <label class="toggle-row"><span>${icon('mountain')} Nieve en las cumbres</span><md-switch id="mountain-snow" aria-label="Nieve en las cumbres" selected></md-switch></label>
+        <p class="scenario-hint">Senderos entre roca, grava y cumbres. La complejidad cambia el recorrido; la roca sólida limita el paso.</p>
+      </section>
       <section id="dungeon-options" class="scenario-options" aria-label="Distribución de la mazmorra" hidden>
         <div class="section-heading"><h2>Cuartos de la mazmorra</h2>${icon('castle')}</div>
         <label class="toggle-row"><span>Cantidad automática</span><md-switch id="rooms-auto" aria-label="Cantidad automática de cuartos" selected></md-switch></label>
@@ -95,7 +115,7 @@ $('#app').innerHTML = `
     <section id="assets-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-assets" hidden>
       <div class="section-heading"><h2>Pequeños grandes detalles</h2><span id="asset-theme-label" class="theme-badge">Vanilla</span></div><p class="panel-description">Elige un objeto y colócalo sobre el mapa. Pulsa <kbd>R</kbd> para girarlo.</p>
       <md-outlined-text-field id="asset-search" label="Buscar objetos">${icon('search')}</md-outlined-text-field>
-      <div class="asset-filters"><button class="active" data-category="all">Todos</button><button data-category="nature">Naturaleza</button><button data-category="adventure">Aventura</button></div>
+      <div class="asset-filters"><button class="active" data-category="all">Todos</button><button data-category="nature">Naturaleza</button><button data-category="adventure">Aventura</button><button data-category="architecture">Construcción</button></div>
       <div class="asset-grid">${ASSETS.map(a => `<button class="asset-card" data-asset="${a.id}" data-category="${a.category}" title="Colocar ${a.name}" aria-pressed="false"><img src="${assetUrl(a.id, 'vanilla')}" alt="" loading="lazy"/><span>${a.name}</span></button>`).join('')}</div><p id="no-assets" hidden>No hay objetos con ese nombre.</p>
       <div class="asset-size-controls"><label for="object-scale">Escala del objeto</label><md-slider id="object-scale" aria-label="Escala del objeto" min="50" max="180" value="100" step="10"></md-slider><div class="range-labels"><span>50 %</span><span id="object-scale-value">100 %</span><span>180 %</span></div></div>
     </section>
@@ -108,7 +128,7 @@ $('#app').innerHTML = `
       <div class="canvas-corner-label"><span class="live-dot"></span> LIENZO DE AVENTURA</div>
       <div class="compass" aria-hidden="true"><span>N</span><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="20"/><path class="compass-fill" d="m30 3 6 23 21 4-21 5-6 22-5-22-22-5 22-4Z"/><path d="M30 3v54M3 30h54"/><circle cx="30" cy="30" r="3"/></svg></div>
       <div class="canvas-toolbar" role="toolbar" aria-label="Herramientas de edición">${iconButton('tool-pan', 'hand', 'Desplazar (V)', 'class="active" aria-pressed="true"')}${iconButton('tool-brush', 'brush', 'Pintar terreno (B)', 'aria-pressed="false"')}${iconButton('tool-place', 'trees', 'Colocar objetos', 'aria-pressed="false"')}${iconButton('tool-erase', 'eraser', 'Borrar objetos (E)', 'aria-pressed="false"')}<span class="tool-separator"></span>${iconButton('undo', 'undo', 'Deshacer (Ctrl+Z)', 'disabled')}${iconButton('redo', 'redo', 'Rehacer (Ctrl+Shift+Z)', 'disabled')}</div>
-      <div id="brush-panel" class="brush-panel" hidden><span class="eyebrow" id="brush-title">PINTAR TERRENO</span><div class="terrain-swatches">${([['grass', 'Hierba', '#778456'], ['path', 'Sendero', '#b4a273'], ['water', 'Agua', '#568d85'], ['floor', 'Suelo de piedra', '#939381'], ['wall', 'Muro', '#42483e'], ['rock', 'Roca sólida', '#53645e']] as const).map(([id, label, color]) => `<button data-terrain="${id}" class="terrain-swatch ${id === 'grass' ? 'active' : ''}" style="--swatch:${color}" title="${label}" aria-label="${label}" aria-pressed="${id === 'grass'}"></button>`).join('')}</div><div class="brush-sizes"><span>Pincel</span>${[1, 2, 3].map(n => `<button data-brush="${n}" class="${n === 1 ? 'active' : ''}" aria-label="Pincel de ${n} casillas">${n}</button>`).join('')}</div></div>
+      <div id="brush-panel" class="brush-panel" hidden><span class="eyebrow" id="brush-title">PINTAR TERRENO</span><div class="terrain-swatches">${([['grass', 'Hierba', '#778456'], ['path', 'Sendero', '#b4a273'], ['water', 'Agua', '#568d85'], ['floor', 'Suelo de piedra', '#939381'], ['wall', 'Muro', '#42483e'], ['rock', 'Roca sólida', '#53645e'], ['sand', 'Arena', '#aba16a'], ['wood', 'Suelo de madera', '#987143'], ['snow', 'Nieve', '#d1ddd7'], ['gravel', 'Grava', '#888e7f']] as const).map(([id, label, color]) => `<button data-terrain="${id}" class="terrain-swatch ${id === 'grass' ? 'active' : ''}" style="--swatch:${color}" title="${label}" aria-label="${label}" aria-pressed="${id === 'grass'}"></button>`).join('')}</div><div class="brush-sizes"><span>Pincel</span>${[1, 2, 3].map(n => `<button data-brush="${n}" class="${n === 1 ? 'active' : ''}" aria-label="Pincel de ${n} casillas">${n}</button>`).join('')}</div></div>
       <div class="canvas-bottom"><div id="tool-hint" class="tool-hint">${icon('hand')} Arrastra para explorar <span>·</span> Rueda para acercar</div><div class="zoom-controls">${iconButton('zoom-out', 'minus', 'Alejar')}<button id="zoom-level" title="Ajustar mapa a la pantalla">100 %</button>${iconButton('zoom-in', 'plus', 'Acercar')}<span></span>${iconButton('fit-map', 'fit', 'Ajustar a la pantalla (F)')}</div></div>
       <div id="loading" class="loading-overlay"><div class="loading-card"><span class="loading-star">${icon('sparkle')}</span><h2>Dibujando otro mundo…</h2><p>Un lugar donde comienza una historia.</p><md-circular-progress indeterminate aria-label="Generando mapa"></md-circular-progress></div></div>
     </div>
@@ -171,7 +191,7 @@ function saveLocal(): void {
 }
 function updateStatus(): void {
   $('#map-title').textContent = map.name;
-  $('#map-biome').textContent = BIOMES[map.config.biome].name.toUpperCase();
+  $('#map-biome').textContent = (map.config.biome === 'building' ? `Edificio · ${BUILDING_TYPES[map.config.buildingType].name}` : BIOMES[map.config.biome].name).toUpperCase();
   $('#map-dimensions').textContent = `${map.config.width} × ${map.config.height} casillas`;
   $('#map-style').textContent = `${THEMES[map.config.theme].name} · ${aspectRatio(map.config.width, map.config.height)}`;
   $('.map-type-icon').innerHTML = icon(BIOMES[map.config.biome].icon);
@@ -188,6 +208,11 @@ function syncControls(): void {
   const size = `${config.width}x${config.height}`;
   ($('#map-size') as Field).value = SIZE_PRESETS.some(p => p.value === size) ? size : 'custom';
   ($('#map-width') as Field).value = String(config.width); ($('#map-height') as Field).value = String(config.height);
+  ($('#building-type') as Field).value = config.buildingType;
+  ($('#village-layout') as Field).value = config.villageLayout;
+  ($('#ruin-decay') as Slider).value = config.ruinDecay;
+  $('#decay-value').innerHTML = `${config.ruinDecay}<span>%</span>`;
+  ($('#mountain-snow') as Toggle).selected = config.mountainSnow;
   ($('#rooms-auto') as Toggle).selected = config.roomCount === 0;
   if (config.roomCount > 0) ($('#room-count') as Field).value = String(config.roomCount);
   ($('#forest-paths') as Checkbox).checked = config.forestPaths;
@@ -197,9 +222,9 @@ function syncControls(): void {
   ($('#seed') as Field).value = config.seed;
   ($('#density') as Slider).value = config.density; ($('#complexity') as Slider).value = config.complexity;
   $('#density-value').innerHTML = `${config.density}<span>%</span>`; $('#complexity-value').innerHTML = `${config.complexity}<span>%</span>`;
-  ($('#water') as Toggle).selected = config.water; ($('#water') as Toggle).disabled = config.biome === 'dungeon';
+  ($('#water') as Toggle).selected = config.water; ($('#water') as Toggle).disabled = config.biome === 'dungeon' || config.biome === 'building';
   ($('#landmarks') as Toggle).selected = config.landmarks;
-  $('#density-label').textContent = config.biome === 'forest' ? 'Vegetación y objetos' : config.biome === 'dungeon' ? 'Muebles y objetos' : 'Rocas y objetos';
+  $('#density-label').textContent = config.biome === 'village' ? 'Ocupación del pueblo' : ['dungeon','building'].includes(config.biome) ? 'Muebles y objetos' : ['forest','ruins'].includes(config.biome) ? 'Vegetación y objetos' : 'Rocas y objetos';
 }
 function syncThemeUI(): void {
   const theme = config.theme;
@@ -208,10 +233,11 @@ function syncThemeUI(): void {
   $('#theme-description').textContent = THEMES[theme].description;
   $('#asset-theme-label').textContent = THEMES[theme].name;
   document.querySelectorAll<HTMLElement>('[data-asset]').forEach(el => { el.querySelector('img')!.src = assetUrl(el.dataset.asset!, theme); });
-  document.querySelectorAll<HTMLElement>('[data-biome]').forEach(el => { const id = el.dataset.biome === 'forest' ? 'tree-oak' : el.dataset.biome === 'cave' ? 'crystal' : 'pillar'; el.querySelector('img')!.src = assetUrl(id, theme); });
+  document.querySelectorAll<HTMLElement>('[data-biome]').forEach(el => { const id = BIOMES[el.dataset.biome as Biome].art; el.querySelector('img')!.src = assetUrl(id, theme); });
   document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(el => { el.style.setProperty('--swatch', THEMES[theme].swatches[el.dataset.terrain as Terrain]); });
   $('#forest-options').style.setProperty('--preview-ground', THEMES[theme].swatches.grass);
   $('#forest-options').style.setProperty('--preview-road', THEMES[theme].swatches.path);
+  updateBuildingPreview();
 }
 function updateDimensions(): void {
   const width = Number(($('#map-width') as Field).value), height = Number(($('#map-height') as Field).value);
@@ -221,6 +247,7 @@ function updateDimensions(): void {
   $('#room-error').textContent = roomError ?? ''; $('#room-error').hidden = !roomError;
   ($('#generate') as Field).disabled = busy || !!error || !!roomError;
   $('#dungeon-options').hidden = config.biome !== 'dungeon'; $('#forest-options').hidden = config.biome !== 'forest';
+  for (const biome of ['building','ruins','village','mountain']) $(`#${biome}-options`).hidden = config.biome !== biome;
   const maximum = maxRoomCount(width, height);
   $('#room-count').setAttribute('max', String(maximum));
   ($('#room-count') as Field).disabled = busy || ($('#rooms-auto') as Toggle).selected;
@@ -248,6 +275,8 @@ function readConfig(): MapConfig {
   if (!seed) { seed = freshSeed(); ($('#seed') as Field).value = seed; }
   const count = ($('#rooms-auto') as Toggle).selected ? 0 : Number(($('#room-count') as Field).value);
   return { ...config, width, height, seed, density: Number(($('#density') as Slider).value), complexity: Number(($('#complexity') as Slider).value), water: ($('#water') as Toggle).selected, landmarks: ($('#landmarks') as Toggle).selected,
+    buildingType: ($('#building-type') as Field).value as BuildingType, villageLayout: ($('#village-layout') as Field).value as VillageLayout,
+    ruinDecay: Number(($('#ruin-decay') as Slider).value), mountainSnow: ($('#mountain-snow') as Toggle).selected,
     roomCount: Number.isInteger(count) && count >= 0 && count <= MAX_ROOMS ? count : 0,
     forestPaths: ($('#forest-paths') as Checkbox).checked, forestBranches: ($('#forest-branches') as Checkbox).checked, forestDeadEnds: ($('#forest-dead-ends') as Checkbox).checked };
 }
@@ -336,6 +365,17 @@ $('#swap-dimensions').addEventListener('click', () => {
   const size = `${($('#map-width') as Field).value}x${($('#map-height') as Field).value}`;
   ($('#map-size') as Field).value = SIZE_PRESETS.some(p => p.value === size) ? size : 'custom'; updateDimensions();
 });
+function updateBuildingPreview(): void {
+  const type = ($('#building-type') as Field).value as BuildingType;
+  const definition = BUILDING_TYPES[type] ?? BUILDING_TYPES.house;
+  $('#building-description').textContent = definition.description;
+  ($('#building-type-preview') as HTMLImageElement).src = assetUrl(definition.art, config.theme);
+}
+$('#building-type').addEventListener('change', updateBuildingPreview);
+$('#compact-building').addEventListener('click', () => {
+  ($('#map-width') as Field).value = '24'; ($('#map-height') as Field).value = '18'; ($('#map-size') as Field).value = '24x18'; updateDimensions();
+});
+$('#ruin-decay').addEventListener('input', () => { $('#decay-value').innerHTML = `${($('#ruin-decay') as Slider).value}<span>%</span>`; });
 $('#rooms-auto').addEventListener('change', updateDimensions);
 $('#room-count').addEventListener('input', updateDimensions);
 $('#forest-paths').addEventListener('change', updatePathControls);

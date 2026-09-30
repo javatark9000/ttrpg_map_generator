@@ -1,6 +1,8 @@
 const paths: Record<string, string> = {
   sparkle: '<path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3Z"/><path d="m20 2 .6 1.4L22 4l-1.4.6L20 6l-.6-1.4L18 4l1.4-.6L20 2Z"/>',
   trees: '<path d="m8 3-5 8h3l-4 6h12l-4-6h3L8 3Zm0 14v4m9-16 4 7h-2l3 6h-7m3 0v3"/>',
+  house: '<path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/>',
+  village: '<path d="m2 11 5-5 5 5M4 10v11h7V10m1-5 5-3 5 3M14 5v16h6V5M7 14v3m10-9v3M2 21h20"/>',
   castle: '<path d="M3 21V7h4V3h3v4h4V3h3v4h4v14H3Zm6 0v-6a3 3 0 0 1 6 0v6M3 11h18"/>',
   mountain: '<path d="m2 21 8-17 4 8 2-4 6 13H2Zm4-8 4 2 3-4m0 10 3-6 3 6"/>',
   chevron: '<path d="m9 5 7 7-7 7"/>',

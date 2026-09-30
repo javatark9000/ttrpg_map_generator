@@ -9,6 +9,7 @@ interface ThemeDefinition {
   terrain: Record<Terrain, Ramp>;
   caveFloor: Ramp;
   caveWater: Ramp;
+  mountainRock: Ramp;
   swatches: Record<Terrain, string>;
   suffixes: string[];
 }
@@ -18,10 +19,12 @@ export const THEMES: Record<Theme, ThemeDefinition> = {
     terrain: {
       grass: [[66,85,51],[137,149,91]], path: [[136,124,82],[187,169,114]],
       sand: [[134,132,86],[176,169,112]], water: [[45,93,87],[99,149,119]],
+      wood: [[101,70,44],[172,136,85]], snow: [[165,181,179],[236,235,215]], gravel: [[95,100,89],[152,147,127]],
       floor: [[98,103,88],[158,152,124]], wall: [[41,46,39],[83,86,70]], rock: [[35,49,49],[87,105,98]],
     },
+    mountainRock: [[85,91,94],[155,155,143]],
     caveFloor: [[69,84,79],[124,133,109]], caveWater: [[31,76,81],[75,146,145]],
-    swatches: { grass:'#778456', path:'#b4a273', water:'#568d85', floor:'#939381', wall:'#42483e', rock:'#53645e', sand:'#aba16a' },
+    swatches: { grass:'#778456', path:'#b4a273', water:'#568d85', floor:'#939381', wall:'#42483e', rock:'#53645e', sand:'#aba16a', wood:'#987143', snow:'#d1ddd7', gravel:'#888e7f' },
     suffixes: ['de los susurros','del último guardián','de la luna velada','del alba olvidada','de las raíces antiguas','de la estrella caída'],
   },
   dark: {
@@ -29,10 +32,12 @@ export const THEMES: Record<Theme, ThemeDefinition> = {
     terrain: {
       grass: [[34,39,35],[86,86,61]], path: [[62,53,44],[119,104,77]],
       sand: [[67,64,55],[109,104,84]], water: [[19,32,36],[52,75,74]],
+      wood: [[46,37,33],[109,83,60]], snow: [[111,124,132],[180,188,185]], gravel: [[58,61,60],[104,104,92]],
       floor: [[59,59,61],[110,103,91]], wall: [[24,24,29],[57,55,56]], rock: [[23,29,32],[65,68,67]],
     },
+    mountainRock: [[43,48,58],[105,109,109]],
     caveFloor: [[47,48,51],[91,86,79]], caveWater: [[19,25,38],[52,64,86]],
-    swatches: { grass:'#4d5140', path:'#74644e', water:'#30474a', floor:'#686360', wall:'#2d2b30', rock:'#3c4242', sand:'#706b55' },
+    swatches: { grass:'#4d5140', path:'#74644e', water:'#30474a', floor:'#686360', wall:'#2d2b30', rock:'#3c4242', sand:'#706b55', wood:'#654d3b', snow:'#949fa4', gravel:'#595e59' },
     suffixes: ['de los juramentos rotos','del rey sin sepultura','de la peste gris','de las cenizas','del hierro maldito','de los condenados'],
   },
   anime: {
@@ -40,10 +45,12 @@ export const THEMES: Record<Theme, ThemeDefinition> = {
     terrain: {
       grass: [[67,127,91],[177,204,116]], path: [[171,149,106],[235,214,158]],
       sand: [[181,178,132],[239,228,178]], water: [[46,137,166],[121,211,215]],
+      wood: [[151,104,78],[230,186,129]], snow: [[152,177,219],[243,244,255]], gravel: [[119,130,157],[192,187,190]],
       floor: [[145,144,167],[221,213,213]], wall: [[63,65,90],[111,117,144]], rock: [[48,62,92],[99,113,153]],
     },
+    mountainRock: [[99,112,150],[187,188,211]],
     caveFloor: [[92,103,139],[166,169,198]], caveWater: [[53,79,155],[126,175,238]],
-    swatches: { grass:'#85b878', path:'#d6be86', water:'#64c0d0', floor:'#bab3c7', wall:'#636785', rock:'#606f98', sand:'#d4cca0' },
+    swatches: { grass:'#85b878', path:'#d6be86', water:'#64c0d0', floor:'#bab3c7', wall:'#636785', rock:'#606f98', sand:'#d4cca0', wood:'#cca06e', snow:'#d7e4fb', gravel:'#a9acc0' },
     suffixes: ['del reino celeste','de la promesa estelar','del portal del alba','de los cerezos eternos','de la corona de cristal','del gremio olvidado'],
   },
 };

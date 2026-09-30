@@ -36,7 +36,7 @@ test('themes apply immediately to the scene, library, editor preview and history
   expect(errors).toEqual([]);
 });
 
-test('all 93 themed SVGs load and render with non-empty, distinct pixels', async ({ page }) => {
+test('all themed SVGs load and render with non-empty, distinct pixels', async ({ page }) => {
   const results = await page.evaluate(async () => {
     const names = [...document.querySelectorAll<HTMLElement>('[data-asset]')].map(e => e.dataset.asset!);
     names.push('terrain-grass', 'terrain-soil', 'terrain-stone', 'terrain-water');
@@ -53,7 +53,7 @@ test('all 93 themed SVGs load and render with non-empty, distinct pixels', async
     }
     return Object.entries(result).map(([id, data]) => ({ id, variants: new Set(data).size }));
   });
-  expect(results).toHaveLength(31);
+  expect(results).toHaveLength(51);
   expect(results.every(r => r.variants === 3)).toBe(true);
 });
 

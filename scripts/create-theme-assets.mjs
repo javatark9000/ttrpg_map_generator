@@ -15,6 +15,7 @@ const materialColors = {
     '#fff5bf':'#ffe1ad','#efc575':'#ecac59','#dc8548':'#be632e','#b04e29':'#723629',
     '#744b42':'#542c32','#84544a':'#6c363d','#9f805b':'#8a7357',
     '#a55740':'#716355','#e5d6b5':'#b9b099',
+    '#ce9567':'#9d8870','#a85e43':'#654e43','#643e35':'#302c2d','#698a8c':'#525d64','#415f69':'#313b45',
   },
   anime: {
     '#af8954':'#ebbb78','#886640':'#c08b58','#5a4430':'#866044',
@@ -23,6 +24,7 @@ const materialColors = {
     '#fff5bf':'#fffbe0','#efc575':'#ffda89','#dc8548':'#ff9e69','#b04e29':'#d9716e',
     '#744b42':'#65518f','#84544a':'#8f75bc','#9f805b':'#eed39a',
     '#79846a':'#91b4ce','#9c9971':'#c5d5e0','#c2baa0':'#f5e9db',
+    '#ce9567':'#f0b997','#a85e43':'#cb7783','#643e35':'#8a5f79','#698a8c':'#879fd5','#415f69':'#536fb1',
     '#a55740':'#dc7897','#e5d6b5':'#fff0dc','#496d67':'#7b95ce','#855b4c':'#be85bd',
   },
 };
@@ -86,6 +88,14 @@ function details(id,theme,rand) {
   const crest=(x,y,s=1)=>`<g transform="translate(${x} ${y}) scale(${s})">${path('M-10 -12L0 -9 10 -12 9 3Q8 11 0 15Q-8 11 -9 3Z',dark?'#5d3839':'#6d82bd',metal,1.6)}${path('M0 -7V8M-5 0H5','none',metal,1.4)}</g>`;
   const band=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${dark?'#444348':'#d2b275'}" stroke="${ink}" stroke-width="1.2"/>`;
   switch(id) {
+    case 'rubble': case 'broken-pillar': case 'archway': case 'statue': case 'cairn': return crack(46,38)+crack(74,75)+(dark?path('M29 84l7 -5 11 3','none','#768068',2):star(77,43,4,'#f6eddd'));
+    case 'roof-house': case 'roof-shop': return dark?path('M24 49l13 4 -4 8 10 4M79 71l17 -6 -4 9','none','#302a2b',2)+band(56,38,15,5):crest(41,75,.55)+path('M19 17Q64 6 109 17','none','#f2d69d',2)+star(86,30,4,'#fff0c7');
+    case 'well': return dark?crack(31,53)+band(27,23,74,5):path('M46 70q13 -9 29 0','none','#caf5f1',2)+star(62,54,4,'#fff1d8');
+    case 'market-stall': return dark?path('M34 30l3 13 -3 7 8 9M81 25l7 7 -4 12','none','#483c39',2):crest(64,45,.65)+path('M23 75q8 12 16 0t16 0 16 0 16 0 16 0','none','#f2d496',2);
+    case 'cart': case 'fence': case 'bookshelf': case 'counter': case 'bench': return dark?band(22,40,83,5)+path('M41 62l13 3 -5 8','none','#292b2b',2):path('M23 35h19m-19 0v12','none','#f2d397',2)+crest(91,76,.4);
+    case 'bed': case 'tent': return dark?path('M44 57l14 8 11 -8m-18 1 -3 7m14 -5 2 6','none','#b6a681',2):crest(64,73,.7)+star(46,46,3,'#ffe5ca');
+    case 'anvil': case 'forge': case 'weapon-rack': return dark?crack(47,39)+band(29,84,69,5):crest(65,87,.45)+star(85,45,4,'#ebf0ff');
+    case 'sacks': return dark?path('M28 44l12 6 8 -5m-10 -3 -3 9','none','#786849',2):crest(82,71,.6);
     case 'tree-oak': case 'tree-pine': case 'tree-gold': return '';
     case 'bush': return dark?path('M20 73l16 -13 17 5 19 -19 21 9 12 -13M36 60l-5 -10m21 15 2 10m18 -29 -3 -12m24 21 6 11','none','#918a6c',2):[star(43,43,4,'#ffecd3'),star(85,57,3,'#f9e2ea'),star(69,82,4,'#ffecd3')].join('');
     case 'rock': case 'stalagmite': return crack(48,28)+crack(68,70)+(dark?path('M34 84l8 2 4 8M71 42l9 2','none','#93907a',1):path('M49 34l-6 8m11 -12 7 -1','none','#f4efff',2.4));
