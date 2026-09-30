@@ -33,5 +33,5 @@ export function fbm(x: number, y: number, seed: number): number {
 }
 export function freshSeed(): string {
   const numbers = crypto.getRandomValues(new Uint32Array(1));
-  return `ASTRA-${numbers[0].toString(36).slice(0, 6).toUpperCase()}`;
+  return `RC-${numbers[0].toString(36).slice(0, 6).toUpperCase()}`;
 }

@@ -1,4 +1,5 @@
 export type Biome = 'forest' | 'dungeon' | 'cave';
+export type Theme = 'vanilla' | 'dark' | 'anime';
 export type Terrain = 'grass' | 'path' | 'water' | 'floor' | 'wall' | 'rock' | 'sand';
 export type AssetId = 'tree-oak' | 'tree-pine' | 'tree-gold' | 'bush' | 'rock' | 'flowers' | 'mushrooms' | 'log' | 'lilies' | 'reeds' | 'chest' | 'barrels' | 'table' | 'books' | 'bones' | 'crystal' | 'stalagmite' | 'pillar' | 'campfire' | 'bedroll' | 'stairs' | 'rug' | 'door' | 'bridge' | 'torch' | 'crates' | 'altar';
 export interface MapObject {
@@ -11,6 +12,7 @@ export interface MapObject {
 }
 export interface MapConfig {
   biome: Biome;
+  theme: Theme;
   width: number;
   height: number;
   seed: string;
@@ -20,7 +22,7 @@ export interface MapConfig {
   landmarks: boolean;
 }
 export interface BattleMap {
-  version: 1;
+  version: 2;
   config: MapConfig;
   name: string;
   terrain: Terrain[];
@@ -33,7 +35,7 @@ export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: str
   dungeon: { name: 'Mazmorra', subtitle: 'Secretos bajo la piedra', prefix: 'La cripta', icon: 'castle' },
   cave: { name: 'Caverna', subtitle: 'Ecos de otro mundo', prefix: 'La caverna', icon: 'mountain' },
 };
-export const DEFAULT_CONFIG: MapConfig = { biome: 'forest', width: 40, height: 30, seed: 'ASTRA-7429', density: 62, complexity: 55, water: true, landmarks: true };
+export const DEFAULT_CONFIG: MapConfig = { biome: 'forest', theme: 'vanilla', width: 40, height: 30, seed: 'RC-7429', density: 62, complexity: 55, water: true, landmarks: true };
 export const ASSETS: { id: AssetId; name: string; category: 'nature' | 'adventure'; size: number }[] = [
   { id: 'tree-oak', name: 'Roble', category: 'nature', size: 2.8 },
   { id: 'tree-pine', name: 'Pino', category: 'nature', size: 2.4 },

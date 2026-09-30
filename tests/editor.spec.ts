@@ -9,11 +9,11 @@ test.beforeEach(async ({ page }) => {
 test('initial illustrated forest, controls and no runtime errors', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await expect(page).toHaveTitle('Astra — Mapas para imaginar aventuras');
+  await expect(page).toHaveTitle('RC map generator — Mundos para tus aventuras');
   await expect(page.locator('#map-title')).toContainText('El bosque');
   await expect(page.locator('#save-status')).toHaveText('Guardado en este navegador');
   await expect(page.locator('#map-canvas')).toBeVisible();
-  await page.screenshot({ path: 'test-results/astra-forest.png' });
+  await page.screenshot({ path: 'test-results/rc-vanilla-forest.png' });
   await page.locator('#grid-toggle').click();
   await expect(page.locator('#grid-toggle')).toHaveAttribute('aria-pressed', 'false');
   await page.keyboard.press('g');
@@ -29,7 +29,7 @@ test('generates all scenarios and changes size through Material Web', async ({ p
     await page.locator('#generate').click();
     await expect(page.locator('#loading')).toBeHidden();
     await expect(page.locator('#map-biome')).toHaveText(biome === 'dungeon' ? 'MAZMORRA' : 'CAVERNA');
-    await page.screenshot({ path: `test-results/astra-${biome}.png` });
+    await page.screenshot({ path: `test-results/rc-vanilla-${biome}.png` });
   }
   await page.locator('#map-size').click();
   await page.locator('#map-size md-select-option[value="24x18"]').click();
@@ -37,7 +37,7 @@ test('generates all scenarios and changes size through Material Web', async ({ p
   await page.locator('#generate').click();
   await expect(page.locator('#loading')).toBeHidden();
   await expect(page.locator('#map-dimensions')).toHaveText('24 × 18 casillas');
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('astra-map-v1')!));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('rc-map-v2')!));
   expect(saved.config.seed).toBe('PRUEBA-DE-MESA');
   await page.reload();
   await expect(page.locator('#loading')).toBeHidden();
@@ -45,7 +45,7 @@ test('generates all scenarios and changes size through Material Web', async ({ p
 });
 
 test('places objects, undo/redo, terrain painting and restoring the project', async ({ page }) => {
-  const getMap = () => page.evaluate(() => JSON.parse(localStorage.getItem('astra-map-v1')!));
+  const getMap = () => page.evaluate(() => JSON.parse(localStorage.getItem('rc-map-v2')!));
   const initial = await getMap();
   await page.locator('#tab-assets').click();
   await page.locator('[data-asset="chest"]').click();
@@ -100,7 +100,7 @@ test('exports a real PNG and JPEG at the requested resolution', async ({ page })
 
 test('handles invalid project files and keyboard shortcuts safely', async ({ page }) => {
   await page.locator('#project-input').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
-  await expect(page.locator('#toast')).toContainText('no es un proyecto Astra válido');
+  await expect(page.locator('#toast')).toContainText('no es un proyecto RC válido');
   await page.locator('#seed').locator('input').fill('bbbbgggeee');
   await expect(page.locator('#tool-pan')).toHaveClass(/active/);
   await expect(page.locator('#grid-toggle')).toHaveAttribute('aria-pressed', 'true');
@@ -115,7 +115,7 @@ test('mobile viewport, configuration drawer and touch-size actions', async ({ pa
   await page.locator('#fit-map').click();
   await expect(page.locator('.sidebar')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: 'test-results/astra-mobile.png' });
+  await page.screenshot({ path: 'test-results/rc-mobile.png' });
   await page.locator('#toggle-sidebar').click();
   await expect(page.locator('.sidebar')).toBeVisible();
   await page.locator('#tab-assets').click();
@@ -123,5 +123,5 @@ test('mobile viewport, configuration drawer and touch-size actions', async ({ pa
   await expect(page.locator('.sidebar')).toBeHidden();
   await page.locator('#open-export').click();
   await expect(page.locator('#export-dialog')).toBeVisible();
-  await page.screenshot({ path: 'test-results/astra-mobile-export.png' });
+  await page.screenshot({ path: 'test-results/rc-mobile-export.png' });
 });

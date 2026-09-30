@@ -1,17 +1,18 @@
 import { ASSETS } from './types';
-import type { BattleMap, RenderOptions, Terrain } from './types';
+import type { BattleMap, RenderOptions, Terrain, Theme } from './types';
+import { assetUrl, THEMES, THEME_IDS } from './themes';
 import { fbm, hashString, Random } from './random';
 
 const images = new Map<string, HTMLImageElement>();
 export async function loadAssets(): Promise<void> {
-  await Promise.all([...ASSETS.map(a => a.id), 'terrain-grass', 'terrain-soil', 'terrain-stone', 'terrain-water'].map(async id => {
+  await Promise.all(THEME_IDS.flatMap(theme => [...ASSETS.map(a => a.id), 'terrain-grass', 'terrain-soil', 'terrain-stone', 'terrain-water'].map(async id => {
     const image = new Image();
-    image.src = `${import.meta.env.BASE_URL}assets/${id}.svg`;
+    image.src = assetUrl(id, theme);
     await image.decode();
-    images.set(id, image);
-  }));
+    images.set(`${theme}/${id}`, image);
+  })));
 }
-export function assetImage(id: string): HTMLImageElement | undefined { return images.get(id); }
+export function assetImage(id: string, theme: Theme): HTMLImageElement | undefined { return images.get(`${theme}/${id}`); }
 
 // Trace cell boundaries into closed polygons; rounded corners soften organic terrain.
 function terrainPath(map: BattleMap, test: (t: Terrain) => boolean, tile: number, round = true): Path2D {
@@ -71,8 +72,8 @@ function colorField(ctx: CanvasRenderingContext2D, width: number, height: number
   sc.putImageData(pixels, 0, 0);
   ctx.drawImage(small, 0, 0, width, height);
 }
-function texture(ctx: CanvasRenderingContext2D, name: string, width: number, height: number, opacity: number, tile: number): void {
-  const image = images.get(`terrain-${name}`);
+function texture(ctx: CanvasRenderingContext2D, name: string, width: number, height: number, opacity: number, tile: number, theme: Theme): void {
+  const image = assetImage(`terrain-${name}`, theme);
   if (!image) return;
   // Rasterize SVG tiles explicitly: browser SVG patterns otherwise depend on viewport sizing.
   const stamp = document.createElement('canvas'); stamp.width = 128; stamp.height = 128;
@@ -84,22 +85,25 @@ function texture(ctx: CanvasRenderingContext2D, name: string, width: number, hei
 }
 
 export function renderMap(map: BattleMap, tile: number, options: RenderOptions): HTMLCanvasElement {
-  const { width: w, height: h, biome } = map.config;
+  const { width: w, height: h, biome, theme } = map.config;
+  const palette = THEMES[theme];
+  const ink = (vanilla: string, dark: string, anime: string) => theme === 'dark' ? dark : theme === 'anime' ? anime : vanilla;
   const canvas = document.createElement('canvas');
   canvas.width = w * tile; canvas.height = h * tile;
   const ctx = canvas.getContext('2d')!;
   const width = canvas.width, height = canvas.height, seed = hashString(map.config.seed);
   const rng = new Random(map.config.seed + '-art');
   const forest = biome === 'forest', cave = biome === 'cave';
-  colorField(ctx, width, height, seed, forest ? [66, 85, 51] : cave ? [35, 49, 49] : [41, 46, 39], forest ? [137, 149, 91] : cave ? [87, 105, 98] : [83, 86, 70], tile);
-  texture(ctx, forest ? 'grass' : 'stone', width, height, 0.52, tile);
+  const base = palette.terrain[forest ? 'grass' : cave ? 'rock' : 'wall'];
+  colorField(ctx, width, height, seed, ...base, tile);
+  texture(ctx, forest ? 'grass' : 'stone', width, height, theme === 'anime' ? .35 : theme === 'dark' ? .65 : .52, tile, theme);
 
   if (!forest) {
     const floor = terrainPath(map, t => t !== 'wall' && t !== 'rock', tile, cave);
-    ctx.strokeStyle = cave ? '#1a2c2d' : '#191f1c'; ctx.lineWidth = tile * 0.42; ctx.stroke(floor);
-    ctx.strokeStyle = cave ? '#768578' : '#a09f82'; ctx.lineWidth = tile * 0.17; ctx.stroke(floor);
+    ctx.strokeStyle = ink(cave ? '#1a2c2d' : '#191f1c', '#15151d', '#414662'); ctx.lineWidth = tile * 0.42; ctx.stroke(floor);
+    ctx.strokeStyle = ink(cave ? '#768578' : '#a09f82', '#716c65', '#a2a9ce'); ctx.lineWidth = tile * 0.17; ctx.stroke(floor);
     ctx.save(); ctx.clip(floor);
-    colorField(ctx, width, height, seed + 4, cave ? [69, 84, 79] : [98, 103, 88], cave ? [124, 133, 109] : [158, 152, 124], tile);
+    colorField(ctx, width, height, seed + 4, ...(cave ? palette.caveFloor : palette.terrain.floor), tile);
     if (!cave) {
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const px = x * tile, py = y * tile;
@@ -109,9 +113,9 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions):
         if (rng.next() < .13) { ctx.strokeStyle = '#4f564947'; ctx.beginPath(); ctx.moveTo(px + tile, py + tile * .2); ctx.lineTo(px + tile * .65, py + tile * .5); ctx.lineTo(px + tile * .75, py + tile * .75); ctx.stroke(); }
       }
     }
-    texture(ctx, 'stone', width, height, .9, tile);
+    texture(ctx, 'stone', width, height, theme === 'anime' ? .5 : .9, tile, theme);
     ctx.restore();
-    ctx.save(); ctx.clip(floor); ctx.strokeStyle = '#18272177'; ctx.lineWidth = tile * .24; ctx.stroke(floor); ctx.strokeStyle = '#18272125'; ctx.lineWidth = tile * .52; ctx.stroke(floor); ctx.restore();
+    ctx.save(); ctx.clip(floor); ctx.strokeStyle = ink('#18272177', '#13141a99', '#34386655'); ctx.lineWidth = tile * .24; ctx.stroke(floor); ctx.strokeStyle = ink('#18272125', '#13141a55', '#34386620'); ctx.lineWidth = tile * .52; ctx.stroke(floor); ctx.restore();
     // Small strata and fissures across the solid stone, never on the playable floor.
     const solid = terrainPath(map, t => t === 'wall' || t === 'rock', tile, cave);
     ctx.save(); ctx.clip(solid);
@@ -140,17 +144,18 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions):
     if (layer.type === 'grass' && forest) continue;
     if (!map.terrain.includes(layer.type)) continue;
     const outline = terrainPath(map, t => t === layer.type, tile, layer.type !== 'wall' && layer.type !== 'floor');
-    ctx.strokeStyle = layer.type === 'path' ? '#a09b6170' : '#8e9a6650'; ctx.lineWidth = tile * .26; ctx.stroke(outline);
-    ctx.save(); ctx.clip(outline); colorField(ctx, width, height, seed + 2, layer.dark, layer.light, tile); texture(ctx, layer.texture, width, height, .8, tile); ctx.restore();
+    ctx.strokeStyle = ink(layer.type === 'path' ? '#a09b6170' : '#8e9a6650', '#4d493988', '#a5c78d88'); ctx.lineWidth = tile * .26; ctx.stroke(outline);
+    const colors = theme === 'vanilla' ? [layer.dark, layer.light] as const : palette.terrain[layer.type];
+    ctx.save(); ctx.clip(outline); colorField(ctx, width, height, seed + 2, colors[0], colors[1], tile); texture(ctx, layer.texture, width, height, .8, tile, theme); ctx.restore();
   }
   if (map.terrain.includes('water')) {
     const water = terrainPath(map, t => t === 'water', tile);
-    ctx.strokeStyle = forest ? '#b2ab77' : '#8e9e86'; ctx.lineWidth = tile * .14; ctx.stroke(water);
+    ctx.strokeStyle = ink(forest ? '#b2ab77' : '#8e9e86', '#757666', '#d9e1c1'); ctx.lineWidth = tile * .14; ctx.stroke(water);
     ctx.save(); ctx.clip(water);
-    colorField(ctx, width, height, seed + 7, cave ? [31, 76, 81] : [45, 93, 87], cave ? [75, 146, 145] : [99, 149, 119], tile);
+    colorField(ctx, width, height, seed + 7, ...(cave ? palette.caveWater : palette.terrain.water), tile);
     ctx.strokeStyle = '#bdd0a635'; ctx.lineWidth = tile * .5; ctx.stroke(water);
     ctx.strokeStyle = '#c9d5ad66'; ctx.lineWidth = tile * .08; ctx.stroke(water);
-    texture(ctx, 'water', width, height, .7, tile);
+    texture(ctx, 'water', width, height, .7, tile, theme);
     ctx.restore();
   }
 
@@ -171,34 +176,34 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions):
     return z(a.asset) - z(b.asset) || a.y - b.y;
   });
   for (const obj of objects) {
-    const image = images.get(obj.asset); if (!image) continue;
+    const image = assetImage(obj.asset, theme); if (!image) continue;
     const size = obj.scale * tile, x = obj.x * tile, y = obj.y * tile;
     if (options.atmosphere && ['campfire', 'crystal', 'torch', 'altar'].includes(obj.asset)) {
       const warm = obj.asset === 'campfire' || obj.asset === 'torch';
       const radius = tile * (warm ? 3.5 : 2.0);
       const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      glow.addColorStop(0, warm ? '#f5be6688' : '#8cdfbd45'); glow.addColorStop(.4, warm ? '#f5be6625' : '#8cdfbd18'); glow.addColorStop(1, '#00000000');
+      glow.addColorStop(0, warm ? ink('#f5be6688', '#d79b5c88', '#ffe2a788') : ink('#8cdfbd45', '#b36a9955', '#d5b8ff88')); glow.addColorStop(.4, warm ? '#f5be6625' : ink('#8cdfbd18', '#ac58731a', '#b9b3ff25')); glow.addColorStop(1, '#00000000');
       ctx.fillStyle = glow; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
     }
     ctx.save(); ctx.translate(x, y); ctx.rotate(obj.rotation);
-    ctx.shadowColor = obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88';
+    ctx.shadowColor = ink(obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88', '#060a10bb', '#35466566');
     ctx.shadowBlur = tile * (obj.asset.startsWith('tree') ? .22 : .09); ctx.shadowOffsetX = tile * .12; ctx.shadowOffsetY = tile * .2;
     ctx.drawImage(image, -size / 2, -size / 2, size, size); ctx.restore();
   }
 
   if (options.atmosphere) {
     const vignette = ctx.createRadialGradient(width * .45, height * .42, width * .13, width * .5, height * .5, Math.max(width, height) * .65);
-    vignette.addColorStop(0, '#15271b00'); vignette.addColorStop(.55, '#14291d08'); vignette.addColorStop(1, '#091c2055');
+    vignette.addColorStop(0, '#15271b00'); vignette.addColorStop(.55, ink('#14291d08', '#14121e18', '#b1b7f008')); vignette.addColorStop(1, ink('#091c2055', '#08081199', '#38447433')); 
     ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
     // Broad sunbeams are deliberately subtle: the grid remains legible.
     if (forest) {
       ctx.save(); ctx.globalCompositeOperation = 'soft-light';
-      const beam = ctx.createLinearGradient(0, 0, width, height); beam.addColorStop(0, '#ece0ac30'); beam.addColorStop(1, '#ece0ac00'); ctx.fillStyle = beam;
+      const beam = ctx.createLinearGradient(0, 0, width, height); beam.addColorStop(0, ink('#ece0ac30', '#a7b6cc20', '#fff3d570')); beam.addColorStop(1, '#ece0ac00'); ctx.fillStyle = beam;
       ctx.beginPath(); ctx.moveTo(width * .1, 0); ctx.lineTo(width * .24, 0); ctx.lineTo(width * .9, height); ctx.lineTo(width * .54, height); ctx.closePath(); ctx.fill(); ctx.restore();
     }
   }
   if (options.grid) {
-    ctx.strokeStyle = `rgba(20,32,26,${options.gridOpacity})`; ctx.lineWidth = Math.max(.65, tile / 72);
+    ctx.strokeStyle = theme === 'dark' ? `rgba(168,166,156,${options.gridOpacity * .65})` : theme === 'anime' ? `rgba(61,67,108,${options.gridOpacity})` : `rgba(20,32,26,${options.gridOpacity})`; ctx.lineWidth = Math.max(.65, tile / 72);
     ctx.beginPath();
     for (let x = 1; x < w; x++) { ctx.moveTo(x * tile, 0); ctx.lineTo(x * tile, height); }
     for (let y = 1; y < h; y++) { ctx.moveTo(0, y * tile); ctx.lineTo(width, y * tile); }

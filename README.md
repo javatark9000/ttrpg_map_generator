@@ -1,6 +1,6 @@
-# Astra · Map Studio
+# RC map generator
 
-Generador y editor de mapas de batalla cuadriculados para D&D, completamente en el navegador. Interfaz en español con **Material Web de Google**, sin React, sin backend y sin servicios de generación de imágenes.
+Generador y editor de mapas de batalla para D&D, en español, con **Material Web de Google + TypeScript + Canvas 2D**. Sin React, backend ni servicios de generación de imágenes.
 
 ## Ejecutar
 
@@ -11,46 +11,71 @@ npm install
 npm run dev
 ```
 
-Abrir **http://127.0.0.1:5180** (o la dirección que indique Vite si ese puerto está ocupado).
+Abrir **http://127.0.0.1:5180**, o el puerto que indique Vite. El servidor solo escucha en la máquina local. Para un teléfono de la misma red: `npm run dev -- --host 0.0.0.0`.
 
 ```bash
-npm run build       # Verificación TypeScript + compilación a dist/
-npm run preview     # Servir la compilación de producción
-npm test            # 20 pruebas unitarias del motor y validación de proyectos
+npm run build       # TypeScript + compilación a dist/
+npm run preview     # Servir la compilación
+npm test            # Pruebas del motor, temas, assets, dimensiones y migración
 npx playwright install chromium
-npm run test:e2e     # 6 pruebas de navegador, incluyendo descargas reales
-npm run assets      # Recrear los 31 assets SVG originales y el favicon
+npm run test:e2e     # Pruebas de navegador y descargas reales
+npm run assets      # Recrear Vanilla y sus variantes Dark/Anime
 ```
 
-Para publicar, servir `dist/` desde cualquier alojamiento de archivos estáticos con HTTPS. Las fuentes, imágenes y scripts están incluidos: no se necesitan claves API ni CDNs. El servidor de desarrollo solo escucha en la máquina local; para probar desde un teléfono de tu red, usar `npm run dev -- --host 0.0.0.0`.
+Publicación: servir `dist/` desde un alojamiento estático con HTTPS. Fuentes, imágenes y scripts se incluyen localmente; no se necesitan claves ni CDNs.
 
-## Qué incluye
+## Tres temáticas completas
 
-- **Bosques:** vegetación con separación mínima, ruido fractal de terreno, senderos sinuosos, un río con puente transitable y campamento.
-- **Mazmorras:** habitaciones BSP, corredores conectados con un árbol de expansión mínima, suelo de piedra, puertas, antorchas, altares y mobiliario.
-- **Cavernas:** autómatas celulares, conexión de regiones por flood fill, lagunas, rocas y cristales luminosos.
-- Semillas reproducibles y controles de densidad, complejidad, agua y puntos de interés.
-- Cuatro tamaños, desde **24 × 18** hasta **64 × 48** casillas. Los proyectos importados admiten dimensiones enteras de 16 a 80 por lado.
-- **27 objetos SVG** originales y **4 texturas de terreno**; no hay imágenes generadas por servicios externos.
-- Cuadrícula opcional, iluminación ambiental, sombras, texturas, costas suavizadas y viñeta.
-- Editor de terreno con seis pinceles y tres tamaños; colocación, escala, rotación y borrado de objetos.
-- Zoom, desplazamiento, ajuste del lienzo, coordenadas y atajos.
-- Deshacer/rehacer, hasta 30 pasos. Regenerar o importar un mapa reemplaza el historial.
-- Guardado automático del último proyecto en `localStorage` y guardado/apertura manual de JSON.
-- Exportación **PNG** o **JPEG**, con o sin cuadrícula, a **50, 100 o 150 píxeles por casilla**. JPEG usa calidad 94 %.
-- Diseño adaptable a móvil, navegación por teclado, controles etiquetados y respeto a movimiento reducido.
+| Temática | Dirección artística |
+| --- | --- |
+| **Vanilla** | La colección original: verdes naturales, piedra cálida, madera y fantasía clásica. Los 31 SVG originales se conservan sin cambios. |
+| **Dark** | Fantasía medieval cruda: árboles retorcidos, follaje escaso, hierro, madera agrietada, telas reparadas, ceniza, piedra erosionada y luz de antorchas. |
+| **Anime** | Fantasía japonesa isekai de reinos: sombreado por celdas, cerezos, vegetación luminosa, cristales lilas, heráldica, pociones y ornamentos arcanos. Arte original, sin personajes o emblemas de franquicias. |
+
+Cada tema contiene **los mismos 27 objetos y 4 texturas de terreno**: **93 SVG temáticos** en total. No son filtros CSS sobre una única imagen: las variantes tienen sus propios SVG, detalles, materiales y, en los árboles, nuevas siluetas.
+
+El selector de temática está siempre disponible sobre los paneles. Al cambiarlo:
+
+- Se actualizan inmediatamente el mapa actual, los objetos existentes, la biblioteca, los pinceles, la previsualización de colocación y la interfaz.
+- **No se pierden casillas ni objetos editados**; solo cambia su representación. El cambio se puede deshacer/rehacer.
+- La generación posterior utiliza la temática elegida, incluyendo nombres y distribución de decoración.
+- Guardado, apertura de proyectos, miniatura de exportación y PNG/JPEG conservan la temática.
+
+## Escenarios y algoritmos
+
+Los tres escenarios están disponibles en cada temática:
+
+- **Bosque:** ruido fractal, vegetación con separación mínima, senderos, río, puente y campamento. En formato vertical, el trazado sigue el eje largo; no se estira una imagen horizontal.
+- **Mazmorra:** habitaciones por BSP, particiones adaptadas al espacio disponible y conexión mediante árbol de expansión mínima. Puertas, antorchas, columnas, cofres y mobiliario.
+- **Caverna:** autómatas celulares, conexión de regiones mediante flood fill, lagunas, rocas y cristales.
+
+La geometría se crea directamente con el ancho y el alto solicitados. Los objetos conservan sus proporciones. La conectividad del **terreno** generado se comprueba en los tres escenarios; las ilustraciones son decorativas y no bloquean navegación.
+
+### Tamaños y relaciones de aspecto
+
+- Preajustes: **4:3, 7:5, 1:1, 16:9, 3:4, 9:16 y 3:1**, en diferentes tamaños.
+- Campos independientes de **ancho** y **alto** para cualquier relación, por ejemplo 37 × 23.
+- Botón para intercambiar ancho/alto y vista de la relación real simplificada.
+- Entre **8 y 120 casillas por lado**, con máximo de **6.400 casillas** en total.
+- Validación compartida por interfaz, generador y carga de proyectos. Se rechazan fracciones, campos vacíos y dimensiones fuera de límite.
 
 ## Uso
 
-1. Elegir un escenario, un tamaño y una semilla. El dado prepara una semilla nueva.
-2. Ajustar los controles y pulsar **Generar mapa**. La misma semilla y configuración generan el mismo mapa.
-3. Usar las herramientas flotantes para pintar terreno o borrar objetos; elegir ilustraciones en **Objetos** para colocarlas.
-4. Guardar el **proyecto JSON** si se quiere conservar una copia editable.
-5. Pulsar **Exportar mapa**. La imagen contiene el mapa completo, sin controles, coordenadas externas ni marcas de agua; no depende del zoom actual.
+1. Elegir **Vanilla**, **Dark** o **Anime** y un escenario.
+2. Elegir un formato o introducir ancho y alto. Una casilla representa **5 pies**, aproximadamente **1,5 m**.
+3. Ajustar densidad, complejidad, agua y puntos de interés; pulsar **Generar mapa**.
+4. Pintar terrenos o elegir objetos para colocarlos, escalarlos, girarlos y borrarlos.
+5. Guardar el **JSON editable** o exportar una imagen **PNG/JPEG**.
 
-Para mesas virtuales, exportar sin cuadrícula y configurar en la mesa el mismo número de casillas. Una casilla representa **5 pies**, aproximadamente **1,5 m**. Los píxeles por casilla determinan el tamaño del archivo, no un tamaño físico de impresión: establecer la escala de impresión en la aplicación correspondiente.
+Las semillas nuevas comienzan con **`RC-`**; la inicial es `RC-7429`. El dado prepara otra semilla. También se permiten semillas escritas manualmente. Una misma configuración, temática y semilla produce el mismo mundo.
 
-### Atajos
+### Editor y atajos
+
+- Seis terrenos, tres tamaños de pincel, 27 objetos por temática.
+- Zoom, desplazamiento, coordenadas y ajuste a pantalla.
+- Deshacer/rehacer, hasta 30 pasos; regenerar o abrir otro proyecto reinicia el historial.
+- Guardado automático del último mapa en este navegador.
+- Diseño adaptable a móvil y controles Material Web accesibles por teclado.
 
 | Acción | Atajo |
 | --- | --- |
@@ -65,41 +90,48 @@ Para mesas virtuales, exportar sin cuadrícula y configurar en la mesa el mismo 
 | Rehacer | Ctrl/Cmd + Shift + Z o Ctrl/Cmd + Y |
 | Desplazar con cualquier herramienta | Alt + arrastrar, botón derecho o central |
 
-## Arquitectura
+## Exportación y proyectos anteriores
+
+**PNG** sin pérdida o **JPEG** al 94 %, con/sin cuadrícula, a **50, 100 o 150 píxeles por casilla**. Se exporta el mapa completo, con su temática y relación de aspecto, independientemente del zoom. No se añaden controles, coordenadas externas ni marcas de agua.
+
+Máximo **40 megapíxeles por imagen** para contener el uso de memoria. Una combinación de tamaño/resolución que exceda el límite muestra un error; elegir menos píxeles por casilla. Los píxeles por casilla no fijan el tamaño físico de impresión: ajustar la escala en la aplicación de impresión o mesa virtual.
+
+Los proyectos nuevos se guardan como `nombre.tematica.rc.json`, con versión 2 y `config.theme`. Los archivos antiguos de versión 1 se abren como **Vanilla** si no tenían temática, **sin alterar casillas, posiciones, objetos ni semillas anteriores**. También se recupera el último mapa guardado bajo la clave anterior del navegador, y se escribe una copia migrada en `rc-map-v2`; el registro anterior no se borra.
+
+Los archivos JSON se validan antes de renderizar: máximo 5 MB y 20.000 objetos. PNG/JPEG son imágenes planas; conservar el JSON para continuar editando. El guardado local no sustituye una copia de seguridad.
+
+## Estructura
 
 ```text
 src/
-  main.ts                   Interfaz Material Web y coordinación del editor
-  style.css                 Tema, componentes y diseño adaptable
-  viewport.ts               Cámara, navegación y gestos de edición
-  icons.ts                  Iconos SVG de la interfaz
+  main.ts                    Interfaz y coordinación del editor
+  style.css / themes.css     Estilos, adaptación y temáticas de interfaz
+  viewport.ts                Cámara, navegación y previsualización de objetos
   engine/
-    types.ts                Configuración, casillas y catálogo de objetos
-    random.ts               PRNG con semilla y ruido de valor fractal
-    generate.ts             BSP, autómatas, vegetación y conectividad
-    generate.worker.ts      Generación fuera del hilo de interfaz
-    render.ts               Renderizado Canvas 2D por capas y exportación
-    storage.ts              Validación estricta de proyectos JSON
-    generate.test.ts        Pruebas del motor y persistencia
-public/assets/              27 objetos y 4 texturas SVG originales
-scripts/create-assets.mjs   Fuente reproducible de las ilustraciones
-tests/editor.spec.ts        Pruebas de integración Playwright
+    types.ts                 Modelo, temática y catálogo de objetos
+    themes.ts                Paletas y configuración de los tres mundos
+    dimensions.ts            Formatos, límites y relaciones de aspecto
+    random.ts                PRNG con semilla y ruido fractal
+    generate.ts              Generación, orientación y conectividad
+    generate.worker.ts       Generación en Web Worker
+    render.ts                Renderizado por capas y exportación temática
+    storage.ts               Validación y migración de proyectos
+public/assets/
+  vanilla/                   31 SVG originales, preservados exactamente
+  dark/                      31 variantes medievales oscuras
+  anime/                     31 variantes isekai
+  *.svg                      Originales conservados para compatibilidad
+scripts/
+  create-assets.mjs          Fuente original de Vanilla
+  create-theme-assets.mjs    Variantes Dark/Anime y copia de Vanilla
 ```
 
-La geometría del mapa se guarda como datos independientes de su imagen. El renderizador usa el mismo pipeline para la vista y la exportación. El ruido se muestrea en coordenadas del mundo para mantener el mismo paisaje a distintas resoluciones. El generador trabaja en un Web Worker; el renderizado y la exportación usan Canvas 2D en el hilo principal.
+La vista y la exportación comparten el renderizador. El ruido se muestrea en coordenadas del mundo para conservar el paisaje al cambiar resolución. La generación se ejecuta en un Web Worker; Canvas 2D y exportación, en el hilo principal.
 
-## Límites y decisiones
+## Verificación y límites
 
-- Máximo **40 megapíxeles** por exportación para contener el consumo de memoria. La resolución más alta no está disponible en todos los tamaños; el cuadro de exportación explica cómo reducirla. Las exportaciones grandes pueden tardar unos segundos.
-- Los SVG son ilustraciones de vista superior, no modelos 3D. Se pueden editar directamente o recrear desde el script.
-- La conectividad se valida sobre el **terreno** generado. Los objetos son decorativos, no bloqueadores de navegación; la colocación manual y los pinceles pueden crear obstáculos o zonas desconectadas. Revisar el mapa según el encuentro.
-- Las casillas de río bajo el puente son transitables. No se modelan reglas de movimiento, cobertura, niebla de guerra ni encuentros.
-- Agua se desactiva en el panel para mazmorras: el generador de ese escenario no la utiliza. Se puede pintar agua manualmente.
-- PNG/JPEG son imágenes planas: para volver a editar, conservar el JSON. El guardado del navegador es una comodidad, no una copia de seguridad.
-- Archivos de proyecto: máximo 5 MB, hasta 20.000 objetos, validación de tipos, dimensiones y valores antes de renderizar.
-- Material Web (`@material/web`) no es Angular Material. El proyecto usa sus Web Components directamente; su estado de mantenimiento debe tenerse en cuenta al actualizar dependencias.
-- Probado automáticamente en Chromium. Otros navegadores modernos requieren soporte para Web Components, Canvas 2D, Web Workers y `HTMLDialogElement`.
+Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 93 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG y vista móvil. Las pruebas del motor cubren semillas, los nueve cruces de tema/escenario y formatos de hasta **1:15 / 15:1**.
 
-## Assets
+La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
 
-Ver [`public/assets/README.md`](public/assets/README.md). Las ilustraciones se han creado específicamente para este proyecto. Las tipografías Cormorant Garamond y DM Sans se sirven localmente mediante Fontsource y conservan sus licencias originales.
+`@material/web` es Material Web, no Angular Material; considerar su estado de mantenimiento al actualizar dependencias. Las fuentes Cormorant Garamond y DM Sans mantienen sus licencias originales y se sirven mediante Fontsource.

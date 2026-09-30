@@ -15,14 +15,17 @@ import '@material/web/slider/slider.js';
 import '@material/web/switch/switch.js';
 import '@material/web/progress/circular-progress.js';
 import { ASSETS, ASSET_SIZES, BIOMES, DEFAULT_CONFIG } from './engine/types';
-import type { AssetId, BattleMap, Biome, MapConfig, RenderOptions, Terrain } from './engine/types';
+import type { AssetId, BattleMap, Biome, MapConfig, RenderOptions, Terrain, Theme } from './engine/types';
+import { THEMES, THEME_IDS, assetUrl } from './engine/themes';
+import { SIZE_PRESETS, MIN_SIDE, MAX_SIDE, dimensionsError, aspectRatio } from './engine/dimensions';
 import { freshSeed } from './engine/random';
 import { loadAssets, renderMap } from './engine/render';
-import { parseMap, STORAGE_KEY } from './engine/storage';
+import { parseMap, STORAGE_KEY, LEGACY_STORAGE_KEY } from './engine/storage';
 import { Viewport } from './viewport';
 import type { Tool } from './viewport';
 import { icon } from './icons';
 import './style.css';
+import './themes.css';
 
 type Field = HTMLElement & { value: string; disabled: boolean };
 type Toggle = HTMLElement & { selected: boolean; disabled: boolean };
@@ -33,7 +36,7 @@ const iconButton = (id: string, name: string, title: string, extra = '') => `<md
 
 $('#app').innerHTML = `
 <header class="app-header">
-  <a class="brand" href="./" aria-label="Astra, inicio"><span class="brand-mark">${icon('sparkle')}</span><span class="brand-name">astra<span class="brand-caption">MAP STUDIO</span></span></a>
+  <a class="brand" href="./" aria-label="RC map generator, inicio"><span class="brand-mark">${icon('sparkle')}</span><span class="brand-name">RC<span class="brand-caption">map generator</span></span></a>
   <div class="header-divider"></div><div class="header-description">Un mundo por imaginar.</div>
   <div class="header-actions">
     <span class="local-badge"><span></span> Hecho en tu navegador</span>
@@ -45,14 +48,17 @@ $('#app').innerHTML = `
 <div class="app-layout">
   <aside class="sidebar" aria-label="Configuración del mapa">
     <div class="sidebar-top"><span class="eyebrow">TU PRÓXIMA AVENTURA</span>${iconButton('close-sidebar', 'close', 'Cerrar panel')}</div>
+    <div class="theme-picker" role="group" aria-label="Temática del mundo">${THEME_IDS.map(theme => `<button class="theme-card ${theme === 'vanilla' ? 'selected' : ''}" data-theme="${theme}" aria-pressed="${theme === 'vanilla'}" title="${THEMES[theme].description}"><img src="${assetUrl('tree-oak', theme)}" alt=""/><span>${THEMES[theme].name}</span></button>`).join('')}</div><p id="theme-description" class="theme-description">${THEMES.vanilla.description}</p>
     <div class="panel-tabs" role="tablist" aria-label="Panel del editor"><button id="tab-world" class="panel-tab active" role="tab" aria-selected="true" aria-controls="world-panel">${icon('map')} Crear mundo</button><button id="tab-assets" class="panel-tab" role="tab" aria-selected="false" aria-controls="assets-panel">${icon('layers')} Objetos <span>${ASSETS.length}</span></button></div>
     <section id="world-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-world">
       <div class="section-heading"><h2>Elige un escenario</h2><span class="step-number">01</span></div>
-      <div class="biome-list">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}"><span class="biome-art ${key}"><img src="${import.meta.env.BASE_URL}assets/${key === 'forest' ? 'tree-oak' : key === 'cave' ? 'crystal' : 'pillar'}.svg" alt=""/></span><span class="biome-info"><strong>${b.name}</strong><small>${b.subtitle}</small></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
+      <div class="biome-list">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}"><span class="biome-art ${key}"><img src="${assetUrl(key === 'forest' ? 'tree-oak' : key === 'cave' ? 'crystal' : 'pillar', 'vanilla')}" alt=""/></span><span class="biome-info"><strong>${b.name}</strong><small>${b.subtitle}</small></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
       <div class="section-heading separated"><h2>Traza los límites</h2><span class="step-number">02</span></div>
-      <md-outlined-select id="map-size" label="Dimensiones del mapa">${option('24x18', 'Pequeño · 24 × 18')}${option('40x30', 'Mediano · 40 × 30', true)}${option('56x40', 'Grande · 56 × 40')}${option('64x48', 'Épico · 64 × 48')}${option('custom', 'Dimensiones del proyecto')}</md-outlined-select>
+      <md-outlined-select id="map-size" label="Formato del mapa">${SIZE_PRESETS.map(p => option(p.value, p.label, p.value === '40x30')).join('')}${option('custom', 'Personalizado · Ancho y alto libres')}</md-outlined-select>
+      <div class="dimension-fields"><md-outlined-text-field id="map-width" type="number" label="Ancho" value="40" min="${MIN_SIDE}" max="${MAX_SIDE}" step="1" inputmode="numeric"></md-outlined-text-field>${iconButton('swap-dimensions', 'redo', 'Intercambiar ancho y alto')}<md-outlined-text-field id="map-height" type="number" label="Alto" value="30" min="${MIN_SIDE}" max="${MAX_SIDE}" step="1" inputmode="numeric"></md-outlined-text-field></div>
+      <div class="dimension-summary"><span id="aspect-preview" aria-hidden="true"></span><span id="aspect-ratio">4:3</span><span id="cell-total">1.200 casillas</span></div><p id="size-error" class="size-error" role="alert" hidden></p>
       <div class="field-hint">${icon('grid')} Cada casilla representa 5 pies / 1,5 m</div>
-      <div class="seed-row"><md-outlined-text-field id="seed" label="Semilla del mundo" value="ASTRA-7429" maxlength="120" spellcheck="false"></md-outlined-text-field>${iconButton('random-seed', 'dice', 'Elegir una nueva semilla')}</div>
+      <div class="seed-row"><md-outlined-text-field id="seed" label="Semilla del mundo" value="RC-7429" maxlength="120" spellcheck="false"></md-outlined-text-field>${iconButton('random-seed', 'dice', 'Elegir una nueva semilla')}</div>
       <div class="section-heading separated"><h2>Dale personalidad</h2><span class="step-number">03</span></div>
       <div class="slider-label"><label id="density-label">Vegetación y objetos</label><output id="density-value">62<span>%</span></output></div>
       <md-slider id="density" aria-labelledby="density-label" min="0" max="100" value="62" step="1"></md-slider>
@@ -64,10 +70,10 @@ $('#app').innerHTML = `
       <div class="world-note">${icon('sparkle')} Una semilla, un mundo único.<br><span>La aventura la escribes tú.</span></div>
     </section>
     <section id="assets-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-assets" hidden>
-      <div class="section-heading"><h2>Pequeños grandes detalles</h2></div><p class="panel-description">Elige un objeto y colócalo sobre el mapa. Pulsa <kbd>R</kbd> para girarlo.</p>
+      <div class="section-heading"><h2>Pequeños grandes detalles</h2><span id="asset-theme-label" class="theme-badge">Vanilla</span></div><p class="panel-description">Elige un objeto y colócalo sobre el mapa. Pulsa <kbd>R</kbd> para girarlo.</p>
       <md-outlined-text-field id="asset-search" label="Buscar objetos">${icon('search')}</md-outlined-text-field>
       <div class="asset-filters"><button class="active" data-category="all">Todos</button><button data-category="nature">Naturaleza</button><button data-category="adventure">Aventura</button></div>
-      <div class="asset-grid">${ASSETS.map(a => `<button class="asset-card" data-asset="${a.id}" data-category="${a.category}" title="Colocar ${a.name}" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/${a.id}.svg" alt="" loading="lazy"/><span>${a.name}</span></button>`).join('')}</div><p id="no-assets" hidden>No hay objetos con ese nombre.</p>
+      <div class="asset-grid">${ASSETS.map(a => `<button class="asset-card" data-asset="${a.id}" data-category="${a.category}" title="Colocar ${a.name}" aria-pressed="false"><img src="${assetUrl(a.id, 'vanilla')}" alt="" loading="lazy"/><span>${a.name}</span></button>`).join('')}</div><p id="no-assets" hidden>No hay objetos con ese nombre.</p>
       <div class="asset-size-controls"><label for="object-scale">Escala del objeto</label><md-slider id="object-scale" aria-label="Escala del objeto" min="50" max="180" value="100" step="10"></md-slider><div class="range-labels"><span>50 %</span><span id="object-scale-value">100 %</span><span>180 %</span></div></div>
     </section>
     <div class="sidebar-footer"><md-filled-button id="generate">${icon('sparkle', 'button-icon')} Generar mapa</md-filled-button><p>Generación procedural · Sin IA generativa</p></div>
@@ -114,6 +120,8 @@ function toast(message: string): void { const el = $('#toast'); el.textContent =
 function setBusy(value: boolean, label = 'Dibujando otro mundo…'): void {
   busy = value; $('#loading').hidden = !value; $('#loading h2').textContent = label;
   for (const id of ['generate', 'open-export', 'open-project', 'save-project']) ($(`#${id}`) as Field).disabled = value;
+  document.querySelectorAll<HTMLButtonElement>('.theme-card').forEach(button => button.disabled = value);
+  updateDimensions();
 }
 function render(fit = false): void {
   if (!map || !assetsReady) return;
@@ -129,7 +137,7 @@ function updateStatus(): void {
   $('#map-title').textContent = map.name;
   $('#map-biome').textContent = BIOMES[map.config.biome].name.toUpperCase();
   $('#map-dimensions').textContent = `${map.config.width} × ${map.config.height} casillas`;
-  $('#map-style').textContent = map.config.biome === 'forest' ? 'Ilustración natural' : map.config.biome === 'cave' ? 'Profundidades arcanas' : 'Piedra y secretos';
+  $('#map-style').textContent = `${THEMES[map.config.theme].name} · ${aspectRatio(map.config.width, map.config.height)}`;
   $('.map-type-icon').innerHTML = icon(BIOMES[map.config.biome].icon);
   $('#object-count').textContent = `${map.objects.length} objetos`;
   $('.map-edited').hidden = !edited;
@@ -139,7 +147,9 @@ function updateStatus(): void {
 function syncControls(): void {
   document.querySelectorAll<HTMLElement>('[data-biome]').forEach(el => { const active = el.dataset.biome === config.biome; el.classList.toggle('selected', active); el.setAttribute('aria-pressed', String(active)); });
   const size = `${config.width}x${config.height}`;
-  ($('#map-size') as Field).value = ['24x18', '40x30', '56x40', '64x48'].includes(size) ? size : 'custom';
+  ($('#map-size') as Field).value = SIZE_PRESETS.some(p => p.value === size) ? size : 'custom';
+  ($('#map-width') as Field).value = String(config.width); ($('#map-height') as Field).value = String(config.height);
+  updateDimensions(); syncThemeUI();
   ($('#seed') as Field).value = config.seed;
   ($('#density') as Slider).value = config.density; ($('#complexity') as Slider).value = config.complexity;
   $('#density-value').innerHTML = `${config.density}<span>%</span>`; $('#complexity-value').innerHTML = `${config.complexity}<span>%</span>`;
@@ -147,16 +157,39 @@ function syncControls(): void {
   ($('#landmarks') as Toggle).selected = config.landmarks;
   $('#density-label').textContent = config.biome === 'forest' ? 'Vegetación y objetos' : config.biome === 'dungeon' ? 'Muebles y objetos' : 'Rocas y objetos';
 }
+function syncThemeUI(): void {
+  const theme = config.theme;
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll<HTMLElement>('.theme-card').forEach(el => { const active = el.dataset.theme === theme; el.classList.toggle('selected', active); el.setAttribute('aria-pressed', String(active)); });
+  $('#theme-description').textContent = THEMES[theme].description;
+  $('#asset-theme-label').textContent = THEMES[theme].name;
+  document.querySelectorAll<HTMLElement>('[data-asset]').forEach(el => { el.querySelector('img')!.src = assetUrl(el.dataset.asset!, theme); });
+  document.querySelectorAll<HTMLElement>('[data-biome]').forEach(el => { const id = el.dataset.biome === 'forest' ? 'tree-oak' : el.dataset.biome === 'cave' ? 'crystal' : 'pillar'; el.querySelector('img')!.src = assetUrl(id, theme); });
+  document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(el => { el.style.setProperty('--swatch', THEMES[theme].swatches[el.dataset.terrain as Terrain]); });
+}
+function updateDimensions(): void {
+  const width = Number(($('#map-width') as Field).value), height = Number(($('#map-height') as Field).value);
+  const error = dimensionsError(width, height);
+  $('#size-error').hidden = !error; $('#size-error').textContent = error ?? '';
+  ($('#generate') as Field).disabled = busy || !!error;
+  $('#aspect-ratio').textContent = aspectRatio(width, height);
+  $('#cell-total').textContent = error ? `${MIN_SIDE}–${MAX_SIDE} por lado · máx. 6.400` : `${(width * height).toLocaleString('es')} casillas`;
+  const ratio = error ? 1 : width / height;
+  $('#aspect-preview').style.width = `${Math.min(30, 20 * ratio)}px`;
+  $('#aspect-preview').style.height = `${Math.min(20, 30 / ratio)}px`;
+}
 function readConfig(): MapConfig {
-  const size = ($('#map-size') as Field).value;
-  const [width, height] = size === 'custom' ? [config.width, config.height] : size.split('x').map(Number);
+  const width = Number(($('#map-width') as Field).value), height = Number(($('#map-height') as Field).value);
   let seed = ($('#seed') as Field).value.trim();
   if (!seed) { seed = freshSeed(); ($('#seed') as Field).value = seed; }
   return { ...config, width, height, seed, density: Number(($('#density') as Slider).value), complexity: Number(($('#complexity') as Slider).value), water: ($('#water') as Toggle).selected, landmarks: ($('#landmarks') as Toggle).selected };
 }
 function requestGenerate(): void {
   if (busy) return;
-  const run = () => { config = readConfig(); pendingFit = !map || map.config.width !== config.width || map.config.height !== config.height; setBusy(true); worker.postMessage(config); $('.sidebar').classList.remove('mobile-open'); };
+  const next = readConfig();
+  const error = dimensionsError(next.width, next.height);
+  if (error) { toast(error); return; }
+  const run = () => { config = next; pendingFit = !map || map.config.width !== config.width || map.config.height !== config.height; setBusy(true); worker.postMessage(config); $('.sidebar').classList.remove('mobile-open'); };
   if (edited) confirmReplace(run); else run();
 }
 function confirmReplace(action: () => void): void { pendingConfirm = action; ($('#confirm-dialog') as HTMLDialogElement).showModal(); }
@@ -187,7 +220,7 @@ function restoreHistory(redo = false): void {
   if (busy || !map) return;
   const from = redo ? redoStack : undoStack, to = redo ? undoStack : redoStack;
   const snapshot = from.pop(); if (!snapshot) return;
-  to.push(structuredClone(map)); map = snapshot; edited = true; render(); saveLocal();
+  to.push(structuredClone(map)); map = snapshot; config.theme = map.config.theme; syncThemeUI(); edited = true; render(); saveLocal();
 }
 function paintCell(x: number, y: number): void {
   const w = map.config.width, h = map.config.height, size = view.brushSize, shift = Math.floor(size / 2);
@@ -217,6 +250,25 @@ view.onEditEnd = () => { if (strokeSnapshot) { pushUndo(strokeSnapshot); strokeS
 view.onZoom = z => { $('#zoom-level').textContent = `${Math.round(z * 100)} %`; };
 view.onHover = (x, y) => { $('#cell-position').textContent = map && x >= 0 && y >= 0 && x < map.config.width && y < map.config.height ? `X ${String(x + 1).padStart(2, '0')}   Y ${String(y + 1).padStart(2, '0')}` : 'X —   Y —'; };
 
+document.querySelectorAll<HTMLElement>('.theme-card').forEach(el => el.addEventListener('click', () => {
+  if (busy) return;
+  const theme = el.dataset.theme as Theme;
+  if (theme === config.theme) return;
+  if (map) { pushUndo(structuredClone(map)); map.config.theme = theme; }
+  config.theme = theme; syncThemeUI(); render(); if (map) saveLocal();
+  toast(`${THEMES[theme].name}: mapa, objetos y pinceles actualizados. Tus ediciones se conservan.`);
+}));
+$('#map-size').addEventListener('change', () => {
+  const value = ($('#map-size') as Field).value;
+  if (value !== 'custom') { const [w, h] = value.split('x'); ($('#map-width') as Field).value = w; ($('#map-height') as Field).value = h; }
+  updateDimensions();
+});
+for (const id of ['map-width', 'map-height']) $(`#${id}`).addEventListener('input', () => { ($('#map-size') as Field).value = 'custom'; updateDimensions(); });
+$('#swap-dimensions').addEventListener('click', () => {
+  const w = ($('#map-width') as Field).value; ($('#map-width') as Field).value = ($('#map-height') as Field).value; ($('#map-height') as Field).value = w;
+  const size = `${($('#map-width') as Field).value}x${($('#map-height') as Field).value}`;
+  ($('#map-size') as Field).value = SIZE_PRESETS.some(p => p.value === size) ? size : 'custom'; updateDimensions();
+});
 $('#generate').addEventListener('click', requestGenerate);
 $('#random-seed').addEventListener('click', () => { ($('#seed') as Field).value = freshSeed(); toast('Nueva semilla lista. Pulsa Generar mapa para explorarla.'); });
 document.querySelectorAll<HTMLElement>('[data-biome]').forEach(el => el.addEventListener('click', () => { config = readConfig(); config.biome = el.dataset.biome as Biome; syncControls(); }));
@@ -250,7 +302,7 @@ $('#confirm-replace').addEventListener('click', () => { ($('#confirm-dialog') as
 
 function download(blob: Blob, filename: string): void { const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60_000); }
 function filename(): string { return map.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-$('#save-project').addEventListener('click', () => { if (!map) return; download(new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' }), `${filename()}.astra.json`); toast('Proyecto guardado. Puedes volver a abrirlo para editarlo.'); });
+$('#save-project').addEventListener('click', () => { if (!map) return; download(new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' }), `${filename()}.${map.config.theme}.rc.json`); toast('Proyecto guardado. Puedes volver a abrirlo para editarlo.'); });
 $('#open-project').addEventListener('click', () => ($('#project-input') as HTMLInputElement).click());
 $('#project-input').addEventListener('change', async () => {
   const input = $('#project-input') as HTMLInputElement, file = input.files?.[0]; if (!file) return;
@@ -300,7 +352,7 @@ $('#download-image').addEventListener('click', async () => {
     button.textContent = 'Preparando imagen…'; await new Promise(resolve => setTimeout(resolve, 50));
     const exported = renderMap(map, tile, { ...options, grid: ($('#export-grid') as Toggle).selected });
     const blob = await new Promise<Blob>((resolve, reject) => exported.toBlob(b => b ? resolve(b) : reject(new Error('El navegador no pudo exportar esta resolución. Prueba con una menor.')), `image/${format}`, .94));
-    download(blob, `${filename()}-${map.config.width}x${map.config.height}.${format === 'jpeg' ? 'jpg' : 'png'}`);
+    download(blob, `${filename()}-${map.config.theme}-${map.config.width}x${map.config.height}.${format === 'jpeg' ? 'jpg' : 'png'}`);
     exported.width = 1; exported.height = 1;
     ($('#export-dialog') as HTMLDialogElement).close(); toast('Mapa exportado. Que empiece la aventura.');
   } catch (error) { $('#export-error').textContent = error instanceof Error ? error.message : 'No se pudo exportar la imagen.'; $('#export-error').hidden = false; }
@@ -323,7 +375,7 @@ async function init(): Promise<void> {
   try {
     await loadAssets(); assetsReady = true;
     let restored: BattleMap | undefined;
-    try { const saved = localStorage.getItem(STORAGE_KEY); if (saved) restored = parseMap(saved); } catch { /* Invalid or unavailable browser storage is not fatal. */ }
+    try { const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY); if (saved) restored = parseMap(saved); } catch { /* Invalid or unavailable browser storage is not fatal. */ }
     if (restored) { map = restored; config = { ...map.config }; edited = true; syncControls(); render(true); setBusy(false); saveLocal(); }
     else { worker.postMessage(config); }
   } catch { setBusy(false); $('#save-status').textContent = 'No se pudieron cargar las ilustraciones'; toast('No se pudieron cargar los assets. Comprueba la conexión y recarga la página.'); }

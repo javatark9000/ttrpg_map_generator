@@ -1,17 +1,28 @@
 import { ASSET_SIZES, BIOMES } from './types';
+import { THEMES, THEME_IDS } from './themes';
+import { dimensionsError } from './dimensions';
 import type { AssetId, BattleMap, MapConfig, Terrain } from './types';
 import { fbm, hashString, Random } from './random';
 
 interface Room { x: number; y: number; w: number; h: number }
 export function generateMap(input: MapConfig): BattleMap {
   const config = { ...input };
-  if (!Number.isInteger(config.width) || !Number.isInteger(config.height) || config.width < 16 || config.height < 16 || config.width > 80 || config.height > 80) throw new Error('Las dimensiones deben estar entre 16 y 80 casillas.');
+  const error = dimensionsError(config.width, config.height);
+  if (error) throw new Error(error);
+  if (!THEME_IDS.includes(config.theme)) throw new Error('La temática no es válida.');
   if (!['forest', 'dungeon', 'cave'].includes(config.biome) || typeof config.seed !== 'string' || config.seed.length > 120 || !Number.isFinite(config.density) || config.density < 0 || config.density > 100 || !Number.isFinite(config.complexity) || config.complexity < 0 || config.complexity > 100) throw new Error('La configuración del mapa no es válida.');
   const { width: w, height: h, biome, seed } = config;
-  const rng = new Random(seed + biome);
+  // Long forest trails follow the long axis, including portrait and narrow formats.
+  if (biome === 'forest' && h > w) {
+    const source = generateMap({ ...config, width: h, height: w });
+    return { ...source, config, terrain: Array.from({ length: w * h }, (_, i) => source.terrain[(i % w) * h + Math.floor(i / w)]),
+      objects: source.objects.map(o => ({ ...o, x: o.y, y: o.x, rotation: Math.PI / 2 - o.rotation })),
+      spawn: { x: source.spawn.y, y: source.spawn.x } };
+  }
+  const rng = new Random(seed + biome + (config.theme === 'vanilla' ? '' : `-${config.theme}`));
   const terrain: Terrain[] = Array(w * h).fill(biome === 'forest' ? 'grass' : biome === 'cave' ? 'rock' : 'wall');
-  const suffix = rng.pick(['de los susurros', 'del último guardián', 'de la luna velada', 'del alba olvidada', 'de las raíces antiguas', 'de la estrella caída']);
-  const map: BattleMap = { version: 1, config, name: `${BIOMES[biome].prefix} ${suffix}`, terrain, objects: [], spawn: { x: 1, y: 1 } };
+  const suffix = rng.pick(THEMES[config.theme].suffixes);
+  const map: BattleMap = { version: 2, config, name: `${BIOMES[biome].prefix} ${suffix}`, terrain, objects: [], spawn: { x: 1, y: 1 } };
   const at = (x: number, y: number) => terrain[y * w + x];
   const set = (x: number, y: number, t: Terrain) => { if (x >= 0 && y >= 0 && x < w && y < h) terrain[y * w + x] = t; };
   const object = (asset: AssetId, x: number, y: number, scale = 1, rotation = 0) => {
@@ -30,7 +41,7 @@ export function generateMap(input: MapConfig): BattleMap {
     const s = hashString(seed);
     const variation = config.complexity / 100;
     const pathY = (x: number) => h * 0.52 + Math.sin(x / w * (4 + variation * 3.6) + s % 7) * h * (0.035 + variation * 0.155) + Math.sin(x * 0.37) * variation * 1.1;
-    const riverX = (y: number) => w * 0.67 + Math.sin(y / h * (3 + variation * 3.6) + s % 4) * w * (0.02 + variation * 0.064);
+    const riverX = (y: number) => w * 0.67 + Math.sin(y / h * (3 + variation * 3.6) + s % 4) * Math.min(w, h * 1.6) * (0.02 + variation * 0.064);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const n = fbm(x * 0.12, y * 0.12, s);
       const pathDistance = Math.abs(y - pathY(x));
@@ -49,7 +60,7 @@ export function generateMap(input: MapConfig): BattleMap {
       for (let x = bx - 2; x <= bx + 2; x++) for (let y = by; y <= by + 1; y++) set(x, y, 'path');
       object('bridge', bx + 0.5, by + 0.8, 1.24);
     }
-    const camp = { x: Math.round(w * 0.33), y: Math.round(pathY(w * 0.33) - 4) };
+    const camp = { x: Math.max(3, Math.min(w - 4, Math.round(w * 0.33))), y: Math.max(3, Math.min(h - 4, Math.round(pathY(w * 0.33) - 4))) }; 
     if (config.landmarks) {
       for (let y = camp.y - 2; y <= camp.y + 2; y++) for (let x = camp.x - 2; x <= camp.x + 2; x++) if (Math.hypot(x - camp.x, y - camp.y) < 2.6) set(x, y, 'path');
       object('campfire', camp.x + 0.5, camp.y + 0.5, 1.05);
@@ -71,18 +82,20 @@ export function generateMap(input: MapConfig): BattleMap {
     for (let i = 0; i < w * h * config.density / 370; i++) {
       const x = rng.int(1, w - 2), y = rng.int(1, h - 2);
       if (at(x, y) === 'grass' && !trees.some(t => Math.hypot(t.x - x, t.y - y) < 1.0) && (!config.landmarks || Math.hypot(x - camp.x, y - camp.y) > 3)) {
-        object(rng.pick<AssetId>(['bush', 'bush', 'rock', 'flowers', 'flowers', 'mushrooms', 'log']), x + rng.next(), y + rng.next(), 0.65 + rng.next() * 0.5, rng.next() * 6.28);
+        object(rng.pick<AssetId>(config.theme === 'dark' ? ['bush', 'rock', 'rock', 'bones', 'mushrooms', 'log', 'log'] : config.theme === 'anime' ? ['bush', 'flowers', 'flowers', 'flowers', 'crystal', 'mushrooms', 'rock'] : ['bush', 'bush', 'rock', 'flowers', 'flowers', 'mushrooms', 'log']), x + rng.next(), y + rng.next(), 0.65 + rng.next() * 0.5, rng.next() * 6.28);
       } else if (at(x, y) === 'water' && rng.next() < 0.45) object('lilies', x + 0.5, y + 0.5, 0.8);
       else if (at(x, y) === 'sand') object('reeds', x + 0.5, y + 0.5);
     }
     map.spawn = { x: 0, y: Math.round(pathY(0)) };
+    connectRegions(map, 'path');
   } else if (biome === 'dungeon') {
     const rooms: Room[] = [];
     const minSize = config.complexity > 65 ? 8 : config.complexity > 30 ? 10 : 13;
     const split = (x: number, y: number, rw: number, rh: number, depth: number) => {
-      const vertical = rw / rh > 1.25 ? true : rh / rw > 1.25 ? false : rng.next() > 0.5;
+      let vertical = rw / rh > 1.25 ? true : rh / rw > 1.25 ? false : rng.next() > 0.5;
+      if ((vertical ? rw : rh) < minSize * 2 && (vertical ? rh : rw) >= minSize * 2) vertical = !vertical;
       const length = vertical ? rw : rh;
-      if (length >= minSize * 2 && depth < 5) {
+      if (length >= minSize * 2 && depth < 7) {
         const p = rng.int(minSize, length - minSize);
         if (vertical) { split(x, y, p, rh, depth + 1); split(x + p, y, rw - p, rh, depth + 1); }
         else { split(x, y, rw, p, depth + 1); split(x, y + p, rw, rh - p, depth + 1); }
@@ -123,7 +136,7 @@ export function generateMap(input: MapConfig): BattleMap {
           object('crates', r.x + r.w - 1.6, r.y + r.h - 1.6, 0.85, rng.next() * .3);
           object('chest', r.x + r.w - 1.1, r.y + 1.1, 0.85);
           object('barrels', r.x + 1.2, r.y + r.h - 1.3, 0.9);
-          if (i % 2) object('bones', r.x + r.w - 1.5, r.y + r.h - 1.5, 0.9, rng.next() * 6);
+          if (i % 2) object(config.theme === 'anime' ? 'crystal' : 'bones', r.x + r.w - 1.5, r.y + r.h - 1.5, 0.9, rng.next() * 6);
         }
       });
       // Doors are placed at narrow room entrances, not randomly across rooms.
@@ -193,7 +206,7 @@ export function getRegions(map: BattleMap): number[][] {
   }
   return regions.sort((a, b) => b.length - a.length);
 }
-function connectRegions(map: BattleMap): void {
+function connectRegions(map: BattleMap, connectionTerrain: Terrain = 'floor'): void {
   const w = map.config.width, regions = getRegions(map);
   if (regions.length < 2) return;
   const main = [...regions[0]];
@@ -206,7 +219,7 @@ function connectRegions(map: BattleMap): void {
     let x = a % w, y = Math.floor(a / w);
     const tx = b % w, ty = Math.floor(b / w);
     while (x !== tx || y !== ty) {
-      map.terrain[y * w + x] = 'floor';
+      map.terrain[y * w + x] = connectionTerrain;
       if (x !== tx) x += Math.sign(tx - x); else y += Math.sign(ty - y);
     }
     main.push(...region);
