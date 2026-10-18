@@ -1,7 +1,9 @@
 import type { AssetId, BattleMap } from '../types';
-import { fbm, hashString, Random } from '../random';
+import { fbm, hashString } from '../random';
+import type { Random } from '../random';
 import { painter } from '../scenario-painter';
 import type { PlaceObject } from '../scenario-painter';
+import { connectRegions } from './connectivity';
 
 export function generateRuins(map:BattleMap,rng:Random,place:PlaceObject):void {
   const p=painter(map,place),{w,h}=p,c=map.config,seed=hashString(c.seed);
@@ -38,4 +40,5 @@ export function generateRuins(map:BattleMap,rng:Random,place:PlaceObject):void {
     const x=rng.int(1,w-2),y=rng.int(1,h-2);
     if(p.at(x,y)==='grass'&&Math.hypot(x-map.spawn.x,y-map.spawn.y)>2)p.object(rng.pick<AssetId>(c.theme==='dark'?['bush','tree-oak','bones','log']:['bush','tree-oak','flowers','flowers']),x+.5,y+.5,.65+rng.next()*.3,rng.next()*6.28);
   }
+  connectRegions(map, 'gravel');
 }

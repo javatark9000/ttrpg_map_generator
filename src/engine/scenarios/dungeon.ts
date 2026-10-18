@@ -1,8 +1,7 @@
-import { generateDungeonRooms } from '../dungeon-rooms';
-import type { AssetId, BattleMap } from '../types';
+import type { BattleMap } from '../types';
 import type { Random } from '../random';
-
-export type PlaceObject = (asset: AssetId, x: number, y: number, scale?: number, rotation?: number) => void;
+import type { PlaceObject } from '../scenario-painter';
+import { generateDungeonRooms } from './dungeon-rooms';
 
 interface Room { x: number; y: number; w: number; h: number }
 

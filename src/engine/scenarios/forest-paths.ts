@@ -1,5 +1,5 @@
-import type { ForestPathLayout, MapConfig } from './types';
-import { Random } from './random';
+import type { ForestPathLayout, MapConfig } from '../types';
+import { Random } from '../random';
 export interface Point { x: number; y: number }
 export interface ForestRoute { kind: 'main' | 'alternate' | 'dead-end'; points: Point[] }
 type Anchor = [number, number];

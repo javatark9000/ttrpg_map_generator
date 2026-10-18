@@ -1,7 +1,9 @@
 import type { AssetId, BattleMap } from '../types';
-import { fbm, hashString, Random } from '../random';
+import { fbm, hashString } from '../random';
+import type { Random } from '../random';
 import { painter } from '../scenario-painter';
 import type { PlaceObject } from '../scenario-painter';
+import { connectRegions } from './connectivity';
 
 export function generateMountain(map:BattleMap,rng:Random,place:PlaceObject):void {
   const p=painter(map,place),{w,h}=p,c=map.config,seed=hashString(c.seed),portrait=h>w;
@@ -34,4 +36,5 @@ export function generateMountain(map:BattleMap,rng:Random,place:PlaceObject):voi
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(p.at(x+dx,y+dy)!=='path')p.set(x+dx,y+dy,'gravel');
     p.object('tent',x+.5,y+.5,.7);p.object('campfire',x+1.6,y+.5,.65);
   }
+  connectRegions(map, 'gravel');
 }

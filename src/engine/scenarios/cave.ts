@@ -1,8 +1,8 @@
 import type { AssetId, BattleMap } from '../types';
 import { fbm, hashString } from '../random';
 import type { Random } from '../random';
+import type { PlaceObject } from '../scenario-painter';
 import { connectRegions } from './connectivity';
-import type { PlaceObject } from './dungeon';
 
 export function generateCave(map: BattleMap, rng: Random, object: PlaceObject): void {
   const { config } = map;

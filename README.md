@@ -224,18 +224,15 @@ src/
     scenarios/               Un módulo de generación por tipo de mapa
       index.ts               Registro y despacho de los siete generadores
       connectivity.ts        Regiones transitables y conexiones compartidas
-      forest.ts              Entrada del bosque y sus rutas
+      forest.ts              Terreno, puentes y decoración sobre la red
+      forest-paths.ts        Trazados, curvas, rutas alternas y callejones
       dungeon.ts             Habitaciones, corredores y decoración
+      dungeon-rooms.ts       BSP automático o con cuota exacta de cuartos
       cave.ts                Autómata celular, lagunas y decoración
       ruins.ts               Recintos deteriorados y vegetación
       village.ts             Parcelas, calles, plazas y estanques
       mountain.ts            Pasos, roca, nieve y campamentos
-      building.ts            Entrada de los interiores especializados
-    dungeon-rooms.ts         BSP automático o con cuota exacta de cuartos
-    forest-paths.ts          Trazados, curvas, rutas alternas y callejones
-    forest.ts                Terreno, puentes y decoración sobre la red
-    landscapes.ts            Exportaciones de compatibilidad
-    buildings.ts             Ocho tipos de interiores y su mobiliario
+      building.ts            Ocho tipos de interiores y su mobiliario
     scenario-painter.ts      Primitivas de pintura y colocación acotada
     scenario-options.ts      Catálogo de miniaturas y validación compartida
     generate.worker.ts       Generación en Web Worker

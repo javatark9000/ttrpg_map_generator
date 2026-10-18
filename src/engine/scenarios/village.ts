@@ -1,7 +1,8 @@
 import type { AssetId, BattleMap } from '../types';
-import { fbm, hashString, Random } from '../random';
+import type { Random } from '../random';
 import { painter } from '../scenario-painter';
 import type { PlaceObject } from '../scenario-painter';
+import { connectRegions } from './connectivity';
 
 export function generateVillage(map:BattleMap,rng:Random,place:PlaceObject):void {
   const p=painter(map,place),{w,h}=p,c=map.config;
@@ -51,4 +52,5 @@ export function generateVillage(map:BattleMap,rng:Random,place:PlaceObject):void
     if(p.at(x,y)==='grass'&&[p.at(x-1,y),p.at(x+1,y),p.at(x,y-1),p.at(x,y+1)].every(t=>t==='grass'))p.object(rng.pick<AssetId>(['tree-oak','bush','flowers']),x+.5,y+.5,.7,rng.next()*6.28);
   }
   map.spawn=linear?(wide?{x:0,y:street}:{x:street,y:0}):{x:0,y:0};
+  connectRegions(map, 'path');
 }

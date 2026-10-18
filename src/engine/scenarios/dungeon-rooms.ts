@@ -1,6 +1,6 @@
-import type { DungeonRoom, MapConfig } from './types';
-import { Random } from './random';
-import { MIN_ROOM_PARTITION, scenarioOptionsError } from './scenario-options';
+import type { DungeonRoom, MapConfig } from '../types';
+import type { Random } from '../random';
+import { MIN_ROOM_PARTITION, scenarioOptionsError } from '../scenario-options';
 
 export function generateDungeonRooms(config: MapConfig, rng: Random): DungeonRoom[] {
   const error = scenarioOptionsError(config);
