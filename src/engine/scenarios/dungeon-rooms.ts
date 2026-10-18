@@ -1,10 +1,14 @@
 import type { DungeonRoom, MapConfig } from '../types';
 import type { Random } from '../random';
-import { MIN_ROOM_PARTITION, scenarioOptionsError } from '../scenario-options';
+import { MIN_ROOM_PARTITION } from '../scenario-options';
+import { generateQuotaRooms } from './dungeon/quotas';
 
 export function generateDungeonRooms(config: MapConfig, rng: Random): DungeonRoom[] {
-  const error = scenarioOptionsError(config);
-  if (error) throw new Error(error);
+  if (config.dungeonRooms !== null) {
+    return generateQuotaRooms(config.width, config.height, config.dungeonRooms, config.complexity, rng);
+  }
+  // Null retains automatic generation and exact-count compatibility for legacy
+  // projects. New manual generation uses categorized quotas exclusively.
   const rooms: DungeonRoom[] = [];
   const minSize = config.complexity > 65 ? 8 : config.complexity > 30 ? 10 : 13;
   const capacity = (w: number, h: number) => Math.floor(w / MIN_ROOM_PARTITION) * Math.floor(h / MIN_ROOM_PARTITION);

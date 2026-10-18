@@ -1,13 +1,14 @@
 import type { LightingSettings } from './lighting-settings';
+import { NEW_ASSETS } from './new-assets';
 
-export type Biome = 'forest' | 'dungeon' | 'cave' | 'ruins' | 'village' | 'mountain' | 'building';
+export type Biome = 'forest' | 'dungeon' | 'cave' | 'ruins' | 'village' | 'mountain' | 'city' | BuildingType;
 export type BuildingType = 'house' | 'tavern' | 'inn' | 'smithy' | 'temple' | 'library' | 'warehouse' | 'barracks';
 export type VillageLayout = 'square' | 'crossroads' | 'linear';
 export type Theme = 'vanilla' | 'dark' | 'anime';
 export type ForestPathLayout = 'meander' | 'vertical' | 'diagonal' | 'bend' | 'fork' | 'crossroads' | 'loop';
 export interface DungeonRoom { x: number; y: number; w: number; h: number }
-export type Terrain = 'grass' | 'path' | 'water' | 'floor' | 'wall' | 'rock' | 'sand' | 'wood' | 'snow' | 'gravel';
-export type AssetId = 'tree-oak' | 'tree-pine' | 'tree-gold' | 'bush' | 'rock' | 'flowers' | 'mushrooms' | 'log' | 'lilies' | 'reeds' | 'chest' | 'barrels' | 'table' | 'books' | 'bones' | 'crystal' | 'stalagmite' | 'pillar' | 'campfire' | 'bedroll' | 'stairs' | 'rug' | 'door' | 'bridge' | 'torch' | 'crates' | 'altar' | 'rubble' | 'broken-pillar' | 'archway' | 'statue' | 'roof-house' | 'roof-shop' | 'well' | 'market-stall' | 'cart' | 'fence' | 'bed' | 'bench' | 'bookshelf' | 'counter' | 'anvil' | 'forge' | 'weapon-rack' | 'sacks' | 'cairn' | 'tent';
+export type Terrain = 'grass' | 'path' | 'water' | 'floor' | 'wall' | 'rock' | 'sand' | 'wood' | 'snow' | 'gravel' | 'void';
+export type AssetId = 'tree-oak' | 'tree-pine' | 'tree-gold' | 'bush' | 'rock' | 'flowers' | 'mushrooms' | 'log' | 'lilies' | 'reeds' | 'chest' | 'barrels' | 'table' | 'books' | 'bones' | 'crystal' | 'stalagmite' | 'pillar' | 'campfire' | 'bedroll' | 'stairs' | 'rug' | 'door' | 'bridge' | 'torch' | 'crates' | 'altar' | 'rubble' | 'broken-pillar' | 'archway' | 'statue' | 'roof-house' | 'roof-shop' | 'well' | 'market-stall' | 'cart' | 'fence' | 'bed' | 'bench' | 'bookshelf' | 'counter' | 'anvil' | 'forge' | 'weapon-rack' | 'sacks' | 'cairn' | 'tent' | typeof NEW_ASSETS[number]['id'];
 export interface MapObject {
   id: string;
   asset: AssetId;
@@ -15,6 +16,8 @@ export interface MapObject {
   y: number;
   scale: number;
   rotation: number;
+  /** Absent for procedural objects, which inherit the map theme. */
+  theme?: Theme;
 }
 export interface MapConfig {
   biome: Biome;
@@ -32,10 +35,54 @@ export interface MapConfig {
   forestPathLayout: ForestPathLayout;
   forestBranches: boolean;
   forestDeadEnds: boolean;
-  buildingType: BuildingType;
   ruinDecay: number;
   villageLayout: VillageLayout;
   mountainSnow: boolean;
+  forestRiverDirection: 'none' | 'random' | 'north-south' | 'east-west' | 'diagonal-nw-se' | 'diagonal-ne-sw';
+  dungeonRooms: { small: number; medium: number; large: number } | null;
+  caveChasms: 'none' | 'safe' | 'dividing';
+  caveNaturalBridges: boolean;
+  ruinLayout: 'grid' | 'courtyard' | 'scattered' | 'random';
+  ruinFeatures: 'simple' | 'standard' | 'monumental';
+  ruinSecretPassages: boolean;
+  villageBlockSize: 'small' | 'mixed' | 'large';
+  villageWealth: { poor: number; common: number; wealthy: number };
+  villageRequiredBuildings: ('market' | 'tavern' | 'temple' | 'ranch')[];
+  mountainPaths: boolean;
+  mountainPathLayout: 'pass' | 'switchback' | 'ridge' | 'fork' | 'random';
+  mountainCaveEntrances: number;
+  cityDensity: number;
+  cityDistrictBalance: number;
+  cityAlleys: 'none' | 'few' | 'many';
+  citySewers: boolean;
+  cityWalls: boolean;
+  cityStreetWidth: 'narrow' | 'standard' | 'wide';
+  houseStatus: 'poor' | 'common' | 'wealthy';
+  houseLayout: 'compact' | 'corridor' | 'courtyard' | 'random';
+  houseBedrooms: number;
+  tavernCondition: 'ordered' | 'messy';
+  tavernUpperStairs: boolean;
+  innRoomCount: number;
+  innUpperStairs: boolean;
+  smithyForgeLayout: 'wall' | 'central';
+  smithyExtraRoomCount: number;
+  templeStyle: 'roman' | 'mosque' | 'synagogue' | 'mandir' | 'pagoda';
+  templeMainHallOnly: boolean;
+  templeSecretRooms: boolean;
+  templeTransition: 'none' | 'upper' | 'basement';
+  warehouseFill: number;
+  warehouseShelfLayout: 'parallel' | 'perimeter' | 'mixed' | 'random';
+  barracksBedLayout: 'walls' | 'perpendicular' | 'rows' | 'random';
+  barracksContents: number;
+}
+export interface MapLayer {
+  id: string;
+  name: string;
+  elevation: number;
+  terrain: Terrain[];
+  objects: MapObject[];
+  spawn: { x: number; y: number };
+  rooms?: DungeonRoom[];
 }
 export interface BattleMap {
   version: 2;
@@ -48,6 +95,10 @@ export interface BattleMap {
   rooms?: DungeonRoom[];
   /** Visual settings travel with the project, independently of procedural geometry. */
   lighting?: LightingSettings;
+  /** Additional floors; the root terrain and objects remain the ground floor. */
+  layers?: MapLayer[];
+  /** 0 = ground floor, 1..N = layers[index - 1]. */
+  activeLayer?: number;
 }
 export interface RenderOptions { grid: boolean; gridOpacity: number; atmosphere: boolean; bioluminescence?: boolean }
 export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: string; icon: string; art: AssetId }> = {
@@ -57,21 +108,37 @@ export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: str
   ruins: { name: 'Ruinas', subtitle: 'Vestigios entre la maleza', prefix: 'Las ruinas', icon: 'castle', art: 'broken-pillar' },
   village: { name: 'Pueblo', subtitle: 'Calles, plazas y tejados', prefix: 'El pueblo', icon: 'village', art: 'roof-house' },
   mountain: { name: 'Montaña', subtitle: 'Cumbres y pasos de altura', prefix: 'El paso', icon: 'mountain', art: 'cairn' },
-  building: { name: 'Edificios', subtitle: 'Interiores con identidad propia', prefix: 'El edificio', icon: 'house', art: 'bed' },
+  city: { name: 'Ciudad', subtitle: 'Barrios, callejones y murallas', prefix: 'La ciudad', icon: 'village', art: 'roof-shop' },
+  house: { name: 'Casa', subtitle: 'Un hogar con historia', prefix: 'La casa', icon: 'house', art: 'bed' },
+  tavern: { name: 'Taberna', subtitle: 'Salón, barra y cocina', prefix: 'La taberna', icon: 'house', art: 'counter' },
+  inn: { name: 'Posada', subtitle: 'Habitaciones y recepción', prefix: 'La posada', icon: 'house', art: 'bed' },
+  smithy: { name: 'Herrería', subtitle: 'Horno y taller de forja', prefix: 'La herrería', icon: 'house', art: 'anvil' },
+  temple: { name: 'Templo', subtitle: 'Santuarios y grandes salones', prefix: 'El templo', icon: 'castle', art: 'altar' },
+  library: { name: 'Biblioteca', subtitle: 'Estudio y lectura', prefix: 'La biblioteca', icon: 'house', art: 'bookshelf' },
+  warehouse: { name: 'Almacén', subtitle: 'Estantes y corredores', prefix: 'El almacén', icon: 'house', art: 'sacks' },
+  barracks: { name: 'Cuartel', subtitle: 'Barracas y equipo', prefix: 'El cuartel', icon: 'house', art: 'bed' },
 };
 export const BIOME_IDS = Object.keys(BIOMES) as Biome[];
-export const OUTDOOR_BIOMES: Biome[] = ['forest', 'ruins', 'village', 'mountain'];
-export const BUILDING_TYPES: Record<BuildingType, { name: string; prefix: string; description: string; art: AssetId }> = {
-  house: { name: 'Casa', prefix: 'La casa', description: 'Sala común, cocina y dormitorios separados.', art: 'bed' },
-  tavern: { name: 'Taberna', prefix: 'La taberna', description: 'Salón con mesas, barra, cocina y despensa.', art: 'counter' },
-  inn: { name: 'Posada', prefix: 'La posada', description: 'Habitaciones a ambos lados de un pasillo y recepción.', art: 'bed' },
-  smithy: { name: 'Herrería', prefix: 'La herrería', description: 'Taller de piedra con fragua, yunques y almacén.', art: 'anvil' },
-  temple: { name: 'Templo', prefix: 'El templo', description: 'Nave central, bancos, columnas y santuario.', art: 'altar' },
-  library: { name: 'Biblioteca', prefix: 'La biblioteca', description: 'Estanterías, corredores de consulta y sala de lectura.', art: 'bookshelf' },
-  warehouse: { name: 'Almacén', prefix: 'El almacén', description: 'Zonas de carga, cajas, sacos y un corredor de servicio.', art: 'sacks' },
-  barracks: { name: 'Cuartel', prefix: 'El cuartel', description: 'Literas, armería y sala de oficiales.', art: 'weapon-rack' },
+export const OUTDOOR_BIOMES: Biome[] = ['forest', 'ruins', 'village', 'mountain', 'city'];
+export const BUILDING_BIOMES: BuildingType[] = ['house', 'tavern', 'inn', 'smithy', 'temple', 'library', 'warehouse', 'barracks'];
+export function isBuildingBiome(biome: Biome): biome is BuildingType {
+  return BUILDING_BIOMES.includes(biome as BuildingType);
+}
+export const DEFAULT_CONFIG: MapConfig = {
+  biome: 'forest', theme: 'vanilla', width: 40, height: 30, seed: 'RC-7429', density: 62,
+  complexity: 55, water: true, landmarks: true, roomCount: 0,
+  forestPaths: true, forestPathLayout: 'meander', forestBranches: false, forestDeadEnds: false,
+  forestRiverDirection: 'random', dungeonRooms: null, caveChasms: 'none', caveNaturalBridges: false,
+  ruinDecay: 55, ruinLayout: 'random', ruinFeatures: 'standard', ruinSecretPassages: false,
+  villageLayout: 'square', villageBlockSize: 'mixed', villageWealth: { poor: 30, common: 50, wealthy: 20 }, villageRequiredBuildings: [],
+  mountainSnow: true, mountainPaths: true, mountainPathLayout: 'pass', mountainCaveEntrances: 0,
+  cityDensity: 80, cityDistrictBalance: 35, cityAlleys: 'few', citySewers: true, cityWalls: false, cityStreetWidth: 'standard',
+  houseStatus: 'common', houseLayout: 'random', houseBedrooms: 0,
+  tavernCondition: 'ordered', tavernUpperStairs: false, innRoomCount: 4, innUpperStairs: false,
+  smithyForgeLayout: 'wall', smithyExtraRoomCount: 0,
+  templeStyle: 'roman', templeMainHallOnly: true, templeSecretRooms: false, templeTransition: 'none',
+  warehouseFill: 65, warehouseShelfLayout: 'mixed', barracksBedLayout: 'rows', barracksContents: 60,
 };
-export const DEFAULT_CONFIG: MapConfig = { biome: 'forest', theme: 'vanilla', width: 40, height: 30, seed: 'RC-7429', density: 62, complexity: 55, water: true, landmarks: true, roomCount: 0, forestPaths: true, forestPathLayout: 'meander', forestBranches: false, forestDeadEnds: false, buildingType: 'house', ruinDecay: 55, villageLayout: 'square', mountainSnow: true };
 export const ASSETS: { id: AssetId; name: string; category: 'nature' | 'adventure' | 'architecture'; size: number }[] = [
   { id: 'tree-oak', name: 'Roble', category: 'nature', size: 2.8 },
   { id: 'tree-pine', name: 'Pino', category: 'nature', size: 2.4 },
@@ -120,5 +187,6 @@ export const ASSETS: { id: AssetId; name: string; category: 'nature' | 'adventur
   { id: 'sacks', name: 'Sacos', category: 'adventure', size: 1.4 },
   { id: 'cairn', name: 'Hito de montaña', category: 'nature', size: 1.3 },
   { id: 'tent', name: 'Tienda de campaña', category: 'adventure', size: 2.7 },
+  ...NEW_ASSETS,
 ];
 export const ASSET_SIZES = Object.fromEntries(ASSETS.map(a => [a.id, a.size])) as Record<AssetId, number>;

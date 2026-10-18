@@ -43,3 +43,5 @@ await save('sacks',[[43,42,23],[83,70,25],[42,94,17]].map(([x,y,r])=>`<ellipse c
 await save('cairn',stone(65,90,1.6)+stone(65,71,1.2)+stone(65,54,.9)+stone(64,38,.65)+stone(63,24,.45));
 await save('tent',path('M13 102L35 31 93 31 117 102Z','url(#cloth)')+path('M35 31L64 13 93 31 64 43Z','#c9be8c')+path('M64 43L117 102 13 102Z','#9aa17a')+path('M64 43L87 102 42 102Z','#334b40')+path('M35 31L13 102M93 31L117 102M64 13V43','none','#ded4a4',2)+path('M13 102L6 112M117 102L124 112','none','#a89a70',2));
 console.log('Created 20 original architecture, furniture and landscape assets.');
+// Additive originals for the expanded scenarios; keeps the legacy artwork intact.
+await import('./create-assets-expanded-worlds.mjs');

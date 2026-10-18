@@ -1,7 +1,7 @@
 import type { BattleMap, Terrain } from '../types';
 
 export function walkable(t: Terrain): boolean {
-  return t !== 'wall' && t !== 'rock' && t !== 'water';
+  return t !== 'wall' && t !== 'rock' && t !== 'water' && t !== 'void';
 }
 
 export function getRegions(map: BattleMap): number[][] {

@@ -3,6 +3,7 @@ import { fbm, hashString } from '../random';
 import type { Random } from '../random';
 import type { PlaceObject } from '../scenario-painter';
 import { connectRegions } from './connectivity';
+import { generateCaveChasms } from './cave/chasms';
 
 export function generateCave(map: BattleMap, rng: Random, object: PlaceObject): void {
   const { config } = map;
@@ -39,9 +40,14 @@ export function generateCave(map: BattleMap, rng: Random, object: PlaceObject): 
     connectRegions(map);
   }
 
+  generateCaveChasms(map);
+
   for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
     if (at(x, y) !== 'floor' || Math.hypot(x - map.spawn.x, y - map.spawn.y) < 2.5) continue;
-    const nearWall = [at(x + 1, y), at(x - 1, y), at(x, y + 1), at(x, y - 1)].includes('rock');
+    const neighbors = [at(x + 1, y), at(x - 1, y), at(x, y + 1), at(x, y - 1)];
+    // Keep fault edges and narrow natural crossings visually clear.
+    if (neighbors.includes('void')) continue;
+    const nearWall = neighbors.includes('rock');
     if (nearWall && rng.next() < config.density / 260) object(rng.pick<AssetId>(['crystal', 'crystal', 'stalagmite', 'rock', 'mushrooms']), x + 0.5, y + 0.5, 0.7 + rng.next() * 0.5, rng.next() * 6.28);
     else if (config.landmarks && rng.next() < config.density / 7000) object(rng.pick<AssetId>(['bones', 'chest']), x + 0.5, y + 0.5, 0.8, rng.next() * 6.28);
   }

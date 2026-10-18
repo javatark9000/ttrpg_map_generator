@@ -18,9 +18,9 @@ export function createSpriteCache(theme: Theme) {
       if (!sprite) {
         sprite = document.createElement('canvas'); sprite.width = sprite.height = SIDE;
         const ctx = sprite.getContext('2d')!, image = assetImage(asset, theme);
-        ctx.shadowColor = theme === 'dark' ? '#060a10bb' : theme === 'anime' ? '#35466566' : asset.startsWith('tree') ? '#10251caa' : '#12221b88';
+        ctx.shadowColor = asset === 'window' ? 'transparent' : theme === 'dark' ? '#060a10bb' : theme === 'anime' ? '#35466566' : asset.startsWith('tree') ? '#10251caa' : '#12221b88';
         ctx.shadowBlur = asset.startsWith('tree') ? 10 : 6; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-        if (image) ctx.drawImage(image, PAD, PAD, 128, 128);
+        ctx.drawImage(image, PAD, PAD, 128, 128);
         sprites.set(asset, sprite);
       }
       return sprite;
@@ -30,7 +30,7 @@ export function createSpriteCache(theme: Theme) {
       if (!tint) {
         tint = document.createElement('canvas'); tint.width = tint.height = 128;
         const ctx = tint.getContext('2d')!, image = assetImage(asset, theme);
-        if (image) ctx.drawImage(image, 0, 0, 128, 128);
+        ctx.drawImage(image, 0, 0, 128, 128);
         ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = magic; ctx.fillRect(0, 0, 128, 128);
         tints.set(asset, tint);
       }

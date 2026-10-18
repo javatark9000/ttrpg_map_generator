@@ -1,0 +1,58 @@
+/** Original Vanilla artwork: scripts/create-assets-expanded-worlds.mjs.
+ * Sizes are square SVG stamps in 1.5 m cells, not collision rectangles.
+ * All new illustrations are static; optional flames use a separate campfire.
+ * Horizontal modules join on the X axis. city-wall-corner joins east + south.
+ * Stairs, cave openings, hearths and roof entrances face south at rotation 0.
+ */
+export const NEW_ASSETS = [
+  { id: 'stairs-up', name: 'Gradas ascendentes', category: 'adventure', size: 2, shadowHeight: 0 },
+  { id: 'stairs-down', name: 'Gradas descendentes', category: 'adventure', size: 2, shadowHeight: 0 },
+  { id: 'cave-entrance', name: 'Entrada de cueva', category: 'nature', size: 2.4, shadowHeight: .55 },
+  { id: 'sewer-entrance', name: 'Acceso de alcantarilla', category: 'architecture', size: 1, shadowHeight: 0 },
+  { id: 'secret-entrance', name: 'Acceso secreto', category: 'adventure', size: 1, shadowHeight: 0 },
+  { id: 'statue-complete', name: 'Estatua completa', category: 'architecture', size: 1.6, shadowHeight: .7 },
+  { id: 'statue-broken', name: 'Estatua quebrada', category: 'architecture', size: 1.6, shadowHeight: .3 },
+  { id: 'market-structure', name: 'Módulo de mercado', category: 'architecture', size: 3, shadowHeight: .7 },
+  { id: 'roof-tavern', name: 'Tejado de taberna', category: 'architecture', size: 6, shadowHeight: 1.2 },
+  { id: 'roof-temple', name: 'Tejado de templo', category: 'architecture', size: 7, shadowHeight: 1.5 },
+  { id: 'roof-ranch', name: 'Tejado de rancho', category: 'architecture', size: 5, shadowHeight: 1 },
+  { id: 'roof-house-poor', name: 'Casa humilde', category: 'architecture', size: 4, shadowHeight: .8 },
+  { id: 'roof-house-common', name: 'Casa tradicional', category: 'architecture', size: 5, shadowHeight: 1.1 },
+  { id: 'roof-house-wealthy', name: 'Casa acomodada', category: 'architecture', size: 6, shadowHeight: 1.3 },
+  { id: 'corral', name: 'Cerca de corral · módulo', category: 'architecture', size: 1, shadowHeight: .3 },
+  { id: 'corral-gate', name: 'Puerta de corral', category: 'architecture', size: 1, shadowHeight: .3 },
+  { id: 'city-wall', name: 'Muralla · tramo', category: 'architecture', size: 1, shadowHeight: 1.2 },
+  { id: 'city-wall-corner', name: 'Muralla · esquina', category: 'architecture', size: 1, shadowHeight: 1.2 },
+  { id: 'city-gate', name: 'Puerta de ciudad', category: 'architecture', size: 2, shadowHeight: 1.3 },
+  { id: 'window', name: 'Ventana', category: 'architecture', size: 1, shadowHeight: 0 },
+  { id: 'drinks', name: 'Bebidas y jarras', category: 'adventure', size: .65, shadowHeight: 0 },
+  { id: 'bar-counter', name: 'Barra de bebidas', category: 'architecture', size: 2.2, shadowHeight: 0 },
+  { id: 'inn-reception', name: 'Recepción de posada', category: 'architecture', size: 2, shadowHeight: 0 },
+  { id: 'wood-stove', name: 'Cocina de leña', category: 'architecture', size: 1.3, shadowHeight: .25 },
+  { id: 'fireplace', name: 'Chimenea interior', category: 'architecture', size: 1.6, shadowHeight: .4 },
+  { id: 'equipment-pack', name: 'Morral de equipo', category: 'adventure', size: .6, shadowHeight: 0 },
+  { id: 'spears', name: 'Lanzas', category: 'adventure', size: 1.4, shadowHeight: 0 },
+  { id: 'swords', name: 'Espadas', category: 'adventure', size: 1, shadowHeight: 0 },
+  { id: 'shelf-full', name: 'Estante lleno · módulo', category: 'architecture', size: 1, shadowHeight: .3 },
+  { id: 'shelf-empty', name: 'Estante vacío · módulo', category: 'architecture', size: 1, shadowHeight: .3 },
+  { id: 'barracks-bed', name: 'Cama de barraca', category: 'architecture', size: 1.6, shadowHeight: 0 },
+  { id: 'forge-furnace', name: 'Horno de herrería', category: 'architecture', size: 2.2, shadowHeight: .65 },
+  { id: 'smith-tools', name: 'Herramientas de herrero', category: 'adventure', size: 1, shadowHeight: 0 },
+  { id: 'armor', name: 'Armadura', category: 'adventure', size: 1.2, shadowHeight: .3 },
+  { id: 'cast-metal', name: 'Piezas fundidas', category: 'adventure', size: 1.2, shadowHeight: 0 },
+  { id: 'order-shelf', name: 'Estante de pedidos', category: 'architecture', size: 1, shadowHeight: .3 },
+  { id: 'altar-roman', name: 'Altar de basílica', category: 'architecture', size: 2, shadowHeight: .2 },
+  { id: 'mihrab', name: 'Mihrab', category: 'architecture', size: 2, shadowHeight: .4 },
+  { id: 'minbar', name: 'Minbar', category: 'architecture', size: 2, shadowHeight: .4 },
+  { id: 'bimah', name: 'Bimá de lectura', category: 'architecture', size: 2, shadowHeight: .2 },
+  { id: 'mandir-shrine', name: 'Santuario de mandir', category: 'architecture', size: 2, shadowHeight: .6 },
+  { id: 'pagoda-shrine', name: 'Santuario de pagoda', category: 'architecture', size: 2, shadowHeight: .6 },
+  { id: 'ablution-fountain', name: 'Fuente de ablución', category: 'architecture', size: 2, shadowHeight: .2 },
+  { id: 'ritual-brazier', name: 'Brasero ceremonial', category: 'adventure', size: .8, shadowHeight: 0 },
+  { id: 'torah-ark', name: 'Arca de la Torá', category: 'architecture', size: 1.6, shadowHeight: .4 },
+  { id: 'temple-bell', name: 'Campana de templo', category: 'architecture', size: 1, shadowHeight: .35 },
+  { id: 'prayer-rug', name: 'Alfombra de oración', category: 'adventure', size: 1, shadowHeight: 0 },
+  { id: 'temple-bench', name: 'Banco de templo', category: 'architecture', size: 2, shadowHeight: 0 },
+] as const;
+export type NewAssetId = typeof NEW_ASSETS[number]['id'];
+export const NEW_ASSET_HEIGHTS = Object.fromEntries(NEW_ASSETS.map(a => [a.id, a.shadowHeight])) as Record<NewAssetId, number>;

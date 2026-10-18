@@ -10,6 +10,7 @@
   .theme-card:disabled { cursor: wait; opacity: .55; }
   .theme-description { text-align: center; color: var(--muted); font-size: 9px; margin: 8px 0 5px; letter-spacing: .2px; }
   .theme-badge { font-size: 8px; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); border-radius: 4px; padding: 3px 5px; margin-left: 5px; }
+  #object-theme { margin-bottom: 2px; }
   .dimension-fields { display: grid; grid-template-columns: minmax(0,1fr) 30px minmax(0,1fr); gap: 5px; align-items: center; margin-top: 17px; }
   .dimension-fields md-outlined-text-field { min-width: 0; --md-outlined-text-field-top-space: 11px; --md-outlined-text-field-bottom-space: 11px; }
   #swap-dimensions { width: 30px; height: 32px; --md-icon-button-state-layer-width: 30px; --md-icon-button-state-layer-height: 32px; }

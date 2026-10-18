@@ -1,5 +1,5 @@
 import { assetImage } from './engine/render';
-import type { AssetId, BattleMap } from './engine/types';
+import type { AssetId, BattleMap, Theme } from './engine/types';
 import type { AnimatedScene } from './engine/animation';
 export type Tool = 'pan' | 'brush' | 'erase' | 'place';
 export class Viewport {
@@ -19,6 +19,7 @@ export class Viewport {
   tool: Tool = 'pan';
   brushSize = 1;
   selectedAsset: AssetId = 'tree-oak';
+  selectedTheme?: Theme;
   assetScale = 2.8;
   rotation = 0;
   onEdit?: (x: number, y: number, first: boolean) => void;
@@ -109,8 +110,8 @@ export class Viewport {
       const p = this.cell(this.pointer), x = Math.floor(p.x), y = Math.floor(p.y);
       if (x >= 0 && y >= 0 && x < this.map.config.width && y < this.map.config.height) {
         if (this.tool === 'place') {
-          const img = assetImage(this.selectedAsset, this.map.config.theme), size = this.assetScale * this.tile;
-          if (img) { ctx.save(); ctx.globalAlpha = .65; ctx.translate((x + .5) * this.tile, (y + .5) * this.tile); ctx.rotate(this.rotation); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore(); }
+          const img = assetImage(this.selectedAsset, this.selectedTheme ?? this.map.config.theme), size = this.assetScale * this.tile;
+          ctx.save(); ctx.globalAlpha = .65; ctx.translate((x + .5) * this.tile, (y + .5) * this.tile); ctx.rotate(this.rotation); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore();
         } else {
           const size = this.brushSize, shift = Math.floor(size / 2);
           ctx.fillStyle = this.tool === 'erase' ? '#e19a8c33' : '#ead3a433'; ctx.strokeStyle = this.tool === 'erase' ? '#e3a99a' : '#f0d49d'; ctx.lineWidth = 1.5 / this.zoom;

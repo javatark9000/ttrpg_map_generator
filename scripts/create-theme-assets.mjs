@@ -1,10 +1,20 @@
 import { readdir, readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { parseArgs } from 'node:util';
+// Targeted additions: --variants-only --ids=stairs-up,stairs-down leaves Vanilla and other SVGs untouched.
+const { values: args } = parseArgs({ options: { 'variants-only': { type: 'boolean', default: false }, ids: { type: 'string' } } });
 const root = new URL('../public/assets/', import.meta.url);
-const files = (await readdir(root)).filter(f => f.endsWith('.svg')).sort();
-for (const theme of ['vanilla', 'dark', 'anime']) await mkdir(new URL(`${theme}/`, root), { recursive: true });
+const available = (await readdir(root)).filter(f => f.endsWith('.svg')).sort();
+const requested = args.ids === undefined ? null : [...new Set(args.ids.split(',').map(id => id.trim()))];
+if (requested?.some(id => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || !available.includes(`${id}.svg`))) {
+  throw new Error('Every --ids entry must name an existing SVG in public/assets/.');
+}
+const files = requested ? available.filter(file => requested.includes(file.slice(0, -4))) : available;
+const copyVanilla = !args['variants-only'];
+for (const theme of copyVanilla ? ['vanilla', 'dark', 'anime'] : ['dark', 'anime']) await mkdir(new URL(`${theme}/`, root), { recursive: true });
 const num = n => Number(n.toFixed(2));
 const path = (d, fill = 'none', stroke = '#303344', width = 1.6) => `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
 const circle = (x,y,r,fill,stroke='none',width=1) => `<circle cx="${num(x)}" cy="${num(y)}" r="${num(r)}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
+const group = (body, transform) => `<g transform="${transform}">${body}</g>`;
 const star = (x,y,r,color) => path(`M${x} ${y-r}Q${x+1} ${y-1} ${x+r} ${y}Q${x+1} ${y+1} ${x} ${y+r}Q${x-1} ${y+1} ${x-r} ${y}Q${x-1} ${y-1} ${x} ${y-r}Z`,color,'none');
 function randomFor(key) { let s = [...key].reduce((a,c) => Math.imul(a ^ c.charCodeAt(0), 16777619), 1234); return () => { s = (Math.imul(s,1664525)+1013904223) >>> 0; return s/4294967296; }; }
 const materialColors = {
@@ -81,6 +91,12 @@ function tree(id,theme,rand) {
   }
   return body;
 }
+function groupSwordDetail(x,y,angle,scale,dark) {
+  const detail = dark
+    ? path('M-3 -26l5 3 -3 6M-3 30l6 -1','none','#a28e77',1.2)
+    : path('M-3 -31v28M-11 20h7m8 0h7','none','#e6e6f7',1.5)+circle(0,20,2,'#b3a0dd','#e7d3a0',.8);
+  return `<g transform="translate(${x} ${y}) rotate(${angle}) scale(${scale})">${detail}</g>`;
+}
 function details(id,theme,rand) {
   const dark=theme==='dark', ink=dark?'#29252b':'#565a89', metal=dark?'#8a8376':'#f1d594';
   const rune=dark?'#b09c8c':'#e5d4ff';
@@ -88,6 +104,139 @@ function details(id,theme,rand) {
   const crest=(x,y,s=1)=>`<g transform="translate(${x} ${y}) scale(${s})">${path('M-10 -12L0 -9 10 -12 9 3Q8 11 0 15Q-8 11 -9 3Z',dark?'#5d3839':'#6d82bd',metal,1.6)}${path('M0 -7V8M-5 0H5','none',metal,1.4)}</g>`;
   const band=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${dark?'#444348':'#d2b275'}" stroke="${ink}" stroke-width="1.2"/>`;
   switch(id) {
+    // Expanded worlds: details stay on their material, leaving doorways and
+    // modular joins unobstructed. Ritual objects keep their own iconography.
+    case 'stairs-up': case 'stairs-down':
+      return dark ? path('M16 44l4 7 -3 7 3 8M108 73l4 6 -3 7 3 9','none',ink,1.5)
+        : path('M17 22v77M109 22v77','none','#e2d9f5',2)+path('M29 111h70','none','#f4e7cb',1.4);
+    case 'cave-entrance':
+      return dark ? path('M21 47l8 8 -5 10M88 23l-7 10 6 9M102 86l10 -4','none',ink,2)+path('M37 55l3 12 5 -18M84 49l5 14 3 -9','#555953',ink,1)
+        : path('M18 63l7 -13m-6 19 8 -7M98 31l7 6','none','#b2d7b0',3)+path('M108 80l-5 -10 -4 12 6 9Z','#b4a3dd','#72799b',1.2);
+    case 'sewer-entrance':
+      return dark ? circle(64,62,43,'none','#857559',1)+path('M45 26l-5 5m51 50 -4 8M21 59l1 9','none','#826047',2)
+        : circle(64,62,43,'none','#e4d3a0',1.4)+path('M46 25q18 -8 36 0','none','#edf3fc',2);
+    case 'secret-entrance':
+      return dark ? crack(47,31)+path('M88 68l12 -5','none','#b6afa0',1)
+        : path('M46 29l51 -3 1 39 -32 14 -17 -7Z','none','#ded2ee',1.2)+circle(82,42,3,'none','#e9d199',1);
+    case 'statue-complete':
+      return dark ? crack(31,76)+path('M94 31l-3 8m-50 42 8 2','none','#9b9583',1)
+        : path('M32 31h11m-11 0v11M95 89H84m11 0V78','none',metal,1.8)+path('M54 28q9 -5 18 1','none','#f7eff2',1.5);
+    case 'statue-broken':
+      return dark ? crack(33,36)+crack(74,78)
+        : path('M32 29h15m-15 0v14','none','#e8d8b1',1.8)+path('M90 102l5 -3 5 4','none','#f0e8fa',1.4);
+    case 'roof-house-poor':
+      return dark ? path('M78 64l21 4 -3 16 -20 -4Z','#625a44',ink,1.2)+path('M80 68l15 3m-16 3 15 3','none','#9b8a63',1)
+        : path('M21 32l9 -2m42 26 15 3m-66 28 12 -3M80 87l20 4','none','#ecd8a0',2);
+    case 'roof-house-common':
+      return dark ? path('M77 64l10 6 -4 7 7 5M21 91l12 -3','none',ink,2)+band(59,48,10,5)
+        : path('M17 23l43 -7M69 16l44 8M68 102l42 -9','none','#f6d6ac',1.8)+path('M29 66l4 8','none','#c6eced',1.2);
+    case 'roof-house-wealthy':
+      return dark ? crack(75,54)+band(59,37,10,5)+path('M15 85h36','none','#8d7962',1.4)
+        : path('M13 23l46 -8M69 15l44 9M15 86h37M83 95h29','none','#f4db9c',2)+circle(64,18,3,'#b9a0db',metal,1);
+    case 'roof-tavern':
+      return dark ? path('M75 55l12 8 -5 7 7 5M28 94l11 4 9 -3','none',ink,1.8)+band(84,90,4,21)
+        : path('M17 94H78M15 87h37M69 15l43 8','none','#f3d796',2)+path('M90 98q3 -4 7 0','none','#fff1cb',1.5);
+    case 'roof-temple':
+      return dark ? crack(24,60)+crack(92,75)+path('M33 23q27 -15 57 -1','none','#9b8b73',1)
+        : path('M18 39l42 -11M68 28l42 11M40 102h48','none','#eed69a',2)+circle(64,51,12,'none','#f5e5b5',1.2);
+    case 'roof-ranch':
+      return dark ? path('M77 53l17 4 -3 15 -16 -4Z','#66604a',ink,1)+path('M78 57l12 3m-13 3 12 3M35 94l8 8','none','#aa9a74',1.2)
+        : path('M16 87h96M16 32l22 -3M77 59l29 5','none','#e3d5a0',2)+path('M30 94l18 12','none','#f0d6a3',1);
+    case 'market-structure':
+      return dark ? path('M58 38l15 3 -2 22 -15 -3Z','#766958',ink,1)+path('M58 43l14 2m-15 10 14 2M30 24l4 15 -3 13','none','#b1a182',1.3)
+        : path('M18 84q7 8 14 0m14 0q7 8 14 0m14 0q7 8 14 0m14 0q7 8 14 0','none','#f8dfb7',1.6)+path('M34 35l4 5 -4 5 -4 -5ZM64 35l4 5 -4 5 -4 -5ZM94 35l4 5 -4 5 -4 -5Z','#eed4c6','none');
+    case 'corral': case 'corral-gate':
+      return dark ? band(20,43,5,9)+band(102,77,5,9)+path('M43 46l13 2m-13 33 13 -1','none',ink,1.3)
+        : path('M11 46h106M11 80h106','none','#f0d5a1',1.3)+[21,106].map(x=>circle(x,47,1.7,metal)).join('');
+    case 'city-wall':
+      return dark ? crack(45,59)+path('M103 79l11 3','none','#969586',1)
+        : path('M4 48h120M6 33h14m17 0h14m18 0h14m18 0h14','none','#e3ddef',1.6)+path('M9 82h17m75 0h17','none','#c0b3d2',1.2);
+    case 'city-wall-corner':
+      return dark ? crack(60,60)+path('M95 62l14 3 -4 7','none',ink,1.7)
+        : path('M51 120V51H120','none','#e6dff3',1.6)+path('M39 39h13m20 0h13m20 0h13M39 72h13m-13 33h13','none','#ddd0b0',1.2);
+    case 'city-gate':
+      return dark ? crack(14,66)+crack(100,66)+band(49,28,30,5)
+        : path('M13 32h15M96 32h19M14 94h16m68 0h16','none','#e8d4a0',1.7)+path('M49 30h30','none','#e2e2f5',2);
+    case 'window':
+      return dark ? path('M21 54l7 6 -4 7m48 -10 6 7 -4 8','none','#38434b',1.3)+band(9,49,5,27)
+        : path('M21 55l11 15M72 55l10 15M98 55l9 13','none','#d5f2f5',2)+path('M8 79h112','none','#f1d9a6',1.4);
+    case 'drinks':
+      return dark ? path('M23 72l4 5 -3 7M74 33l5 -1','none','#a59678',1.3)+path('M81 59l5 3','none',ink,1.3)
+        : path('M36 69q6 -5 12 0M84 82q4 -4 8 0','none','#ffedcc',1.7)+path('M77 34l2 7','none','#c9e8f3',2);
+    case 'bar-counter':
+      return dark ? path('M39 71l13 3 -4 4M105 49l10 4','none',ink,1.5)+band(7,39,5,38)
+        : path('M2 75h124','none','#ecd59b',1.6)+path('M56 47h15m-15 2v10','none','#c5d9ef',1.1);
+    case 'inn-reception':
+      return dark ? path('M11 37l10 -2m82 1 8 4 -3 3','none',ink,1.5)+band(100,62,15,4)
+        : path('M11 34h102v39','none','#efdaa1',1.5)+path('M72 39q4 -3 8 1','none','#fff0ce',1.5)+circle(29,78,1,'#dfc3ee');
+    case 'wood-stove':
+      return dark ? crack(23,52)+path('M34 38l9 -3m35 53 7 -2','none','#a18d73',1.2)
+        : path('M58 14v15M33 34v29M94 35v27','none','#dbe2f5',1.7)+circle(49,52,11,'none','#a6bfdf',1.1);
+    case 'fireplace':
+      return dark ? path('M19 43l7 7 -3 6 5 9M104 75l5 7 -4 6 4 11','none',ink,1.7)
+        : path('M36 37q27 -18 55 0M18 111h92','none','#f1dfbf',1.7)+path('M20 45v12m88 -12v12','none','#e3d7ed',1.2);
+    case 'equipment-pack':
+      return dark ? path('M53 83l9 6 9 -5m-14 -3 -3 7m13 -5 1 7','none','#b5a37d',1.5)
+        : path('M35 42q28 -14 57 0M49 95h25','none','#dce1b6',1.6)+path('M62 47l4 4 -4 4 -4 -4Z','#d6bbe4','#8282a2',1);
+    case 'spears':
+      return dark ? group(path('M35 27l7 4m-5 19h5m-6 4h5','none','#a68b68',1.4),'rotate(-14 39 64)')+group(path('M75 27l6 3','none',ink,1),'translate(0 5) rotate(12 79 64)')
+        : group(path('M39 14l-3 12m1 19h5','none','#ecf0ff',1.6),'rotate(-14 39 64)')+group(path('M79 14l-3 12m1 19h5','none','#ecf0ff',1.6),'translate(0 5) rotate(12 79 64)');
+    case 'swords':
+      return [[46,62,-20,1],[84,64,24,.85]].map(([x,y,a,s])=>groupSwordDetail(x,y,a,s,dark)).join('');
+    case 'shelf-empty': case 'shelf-full': case 'order-shelf':
+      return dark ? band(15,60,6,6)+band(108,92,6,6)+path('M42 32l15 2','none',ink,1.2)
+        : path('M7 33h114M7 63h114M7 95h114','none','#efdab0',1.1)+[10,117].map(x=>circle(x,63,1.4,'#dfc7ef')).join('');
+    case 'barracks-bed':
+      return dark ? path('M51 78l9 4 9 -5m-14 0 -3 6m12 -5 3 5','none','#b6a681',1.4)+path('M47 28l12 -1','none','#bab19c',1)
+        : path('M43 55h42M43 100h42','none','#d9dec2',1.5)+path('M55 64l4 4 4 -4 4 4 4 -4','none','#d8d0e7',1.2);
+    case 'forge-furnace':
+      return dark ? path('M18 65l6 7 -3 6 4 9M104 76l6 6 -4 7 4 9','none',ink,1.7)+path('M47 38q18 -7 35 3','none','#82755f',1.5)
+        : path('M34 48q8 -14 22 -14m16 0q14 0 22 14M31 109h62','none','#ead8b1',1.6)+path('M55 15h17','none','#c4d0e9',1.3);
+    case 'smith-tools':
+      return dark ? path('M32 28l9 2 -2 5m-8 54 -2 7','none',ink,1.3)+path('M76 65l5 -3','none','#ab9b83',1)
+        : path('M30 23l20 5M31 86l5 -17M70 40l5 12','none','#e5e9f8',1.5);
+    case 'armor':
+      return dark ? path('M51 50l6 7 -3 7M75 83l9 -2M29 49l6 4','none',ink,1.5)+path('M55 82h18','none','#9f8f77',1.1)
+        : path('M48 45l-3 24m34 -24 3 24M44 87q20 7 40 0','none','#e9d79f',1.6)+path('M64 48l5 7 -5 7 -5 -7Z','#b4a0df','#707796',1.2)+path('M54 17q7 -7 15 -2','none','#f2edff',1.6);
+    case 'cast-metal':
+      return dark ? path('M60 20l8 4 -2 5M69 51l8 3M26 40l4 -2','none','#504c48',1.3)
+        : path('M59 18h18M63 33h18M68 50h18M91 88h11','none','#e6edf9',1.5)+path('M20 41q1 -6 7 -7','none','#ead8ab',1.5);
+    case 'altar-roman':
+      return dark ? crack(18,65)+path('M30 91l16 2M92 48v13','none','#afa58d',1)
+        : path('M26 32h75M27 94h74','none','#eee0b4',1.5)+path('M33 44v30m62 -30v30','none','#e0cda5',1.2);
+    case 'mihrab':
+      return dark ? path('M23 17l7 8 -3 6M99 76l6 8 -4 7','none',ink,1.4)
+        : path('M35 101V58Q35 40 64 25Q93 40 93 58V101','none','#e7d69d',1.2)+path('M25 45l3 3 -3 3 -3 -3ZM103 45l3 3 -3 3 -3 -3Z','#e0d6f1','none');
+    case 'minbar':
+      return dark ? path('M44 29l9 3 -3 6M81 88l5 4','none',ink,1.4)+band(27,72,6,5)
+        : path('M33 37v63M95 37v63M42 53h44M35 27l29 -15 29 15','none','#eddaa6',1.3)+path('M64 37l5 5 -5 5 -5 -5Z','none','#dbc8ed',1);
+    case 'bimah':
+      return dark ? path('M33 84l8 2 -2 4M92 39l5 3','none',ink,1.5)+band(20,73,7,5)
+        : path('M29 27h70M30 94v8h11M98 94v8H87','none','#efdbab',1.5)+path('M48 55q7 -3 12 0m8 0q7 -3 12 0','none','#fff1d9',1);
+    case 'mandir-shrine':
+      return dark ? path('M19 63l6 7 -3 8M99 91l7 4 -2 7','none',ink,1.5)+path('M44 39h12m17 0h11','none','#b0a087',1.1)
+        : path('M36 47h56M45 33h38M55 22h18','none','#f7dba1',1.7)+path('M39 63q6 -10 15 -13m20 0q9 3 15 13','none','#e6c4cc',1.4)+path('M51 82q12 7 26 0','none','#ffe9bc',1.4);
+    case 'pagoda-shrine':
+      return dark ? path('M37 24l8 2 -2 5M82 45l10 4M25 89l5 6','none',ink,1.4)
+        : path('M20 51q44 -10 88 0M32 30q32 -10 64 0','none','#bdd9da',1.8)+path('M37 62v23m52 -23v23','none','#edbfaf',1.2)+path('M54 86q10 4 20 0','none','#f6d7a0',1.2);
+    case 'ablution-fountain':
+      return dark ? path('M52 14l4 4 -3 4M103 86l8 4 -5 6','none',ink,1.5)+path('M24 48l4 -7M96 85l-5 9','none','#75877e',1.4)
+        : path('M43 18h42l24 25M18 44v39l25 26','none','#e7d9ad',1.6)+path('M43 49q20 -17 42 0M45 81q18 13 36 0','none','#c6edf1',1.3);
+    case 'ritual-brazier':
+      return dark ? path('M39 38l7 -4M84 77l7 -6','none','#ad916b',1.6)+path('M30 89l-2 9','none',ink,1.3)
+        : path('M36 42q13 -16 35 -14','none','#f5deb0',1.6)+circle(64,58,36,'none','#e4c5a7',1)+path('M61 111h6','none','#ead6a1',1.4);
+    case 'torah-ark':
+      return dark ? path('M23 76l6 7 -2 8M83 20l12 5','none',ink,1.4)+path('M37 85l8 3 5 -4','none','#aa9682',1)
+        : path('M25 25l39 -11 39 11M34 37v57m60 -57v57M22 108h84','none','#eed8a1',1.5)+path('M43 84q20 7 42 0','none','#d6bddc',1.3);
+    case 'temple-bell':
+      return dark ? path('M49 67l8 4 -3 7M100 39l2 7','none',ink,1.4)+path('M74 46l4 6','none','#baa27c',1)
+        : path('M51 54q1 -10 8 -12M47 73h34M42 83q22 7 44 0','none','#f2dca7',1.8)+path('M28 27h72','none','#d9c8bb',1.2);
+    case 'prayer-rug':
+      return dark ? path('M32 79l6 3 -4 7m52 11 7 3','none','#b3a482',1.2)
+        : path('M37 22v82M91 22v82M45 101V55Q45 39 64 28Q83 39 83 55V101','none','#e4d5aa',1.1);
+    case 'temple-bench':
+      return dark ? band(24,49,5,29)+path('M54 57l13 3 -4 4','none',ink,1.5)
+        : path('M17 52h94M17 75h94','none','#efdaa6',1.4)+path('M50 61h28','none','#ddc5bd',1);
     case 'rubble': case 'broken-pillar': case 'archway': case 'statue': case 'cairn': return crack(46,38)+crack(74,75)+(dark?path('M29 84l7 -5 11 3','none','#768068',2):star(77,43,4,'#f6eddd'));
     case 'roof-house': case 'roof-shop': return dark?path('M24 49l13 4 -4 8 10 4M79 71l17 -6 -4 9','none','#302a2b',2)+band(56,38,15,5):crest(41,75,.55)+path('M19 17Q64 6 109 17','none','#f2d69d',2)+star(86,30,4,'#fff0c7');
     case 'well': return dark?crack(31,53)+band(27,23,74,5):path('M46 70q13 -9 29 0','none','#caf5f1',2)+star(62,54,4,'#fff1d8');
@@ -123,7 +272,7 @@ function details(id,theme,rand) {
   return '';
 }
 for(const file of files) {
-  await copyFile(new URL(file,root),new URL(`vanilla/${file}`,root));
+  if (copyVanilla) await copyFile(new URL(file,root),new URL(`vanilla/${file}`,root));
   const original=await readFile(new URL(file,root),'utf8'), id=file.slice(0,-4);
   for(const theme of ['dark','anime']) {
     const rand=randomFor(`${theme}-${id}`);
@@ -155,4 +304,4 @@ for(const file of files) {
     await writeFile(new URL(`${theme}/${file}`,root),svg);
   }
 }
-console.log(`Preserved ${files.length} Vanilla assets; created ${files.length} Dark and ${files.length} Anime variants.`);
+console.log(`${copyVanilla ? `Copied ${files.length} Vanilla assets` : 'Left Vanilla untouched'}; created ${files.length} Dark and ${files.length} Anime variants.`);

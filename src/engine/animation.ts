@@ -4,12 +4,15 @@ import { ANIMATED_ASSETS, createSpriteCache, drawMagic, drawPetals, drawSprite }
 import { hashString, Random } from './random';
 import { lightPulse, loopPhase } from './animation-settings';
 import { lightingFor } from './lighting';
+import { mapForActiveLayer } from './map-layers';
+import { THEME_IDS } from './themes';
 
 export interface AnimatedScene {
   frame(timeMs: number): HTMLCanvasElement;
   dispose(): void;
 }
 export function hasAnimation(map: BattleMap, options: Pick<RenderOptions, 'bioluminescence'> = {}): boolean {
+  map = mapForActiveLayer(map);
   return map.terrain.includes('water') || map.objects.some(o => ANIMATED_ASSETS.includes(o.asset) || (o.asset === 'mushrooms' && options.bioluminescence));
 }
 
@@ -17,12 +20,13 @@ export function hasAnimation(map: BattleMap, options: Pick<RenderOptions, 'biolu
  * motion in its normal depth order, so trees occlude flames, magic and petals.
  * No procedural map regeneration and no SVG decoding per frame. */
 export function createAnimatedScene(map: BattleMap, tile: number, options: RenderOptions): AnimatedScene {
+  map = mapForActiveLayer(map);
   const layers: HTMLCanvasElement[] = [];
   const lighting = lightingFor(map, options);
   renderMap(map, tile, options, layers, false);
   // The object layer is intentionally empty; small shared sprites replace it.
   layers[1].width = layers[1].height = 1;
-  const cache = createSpriteCache(map.config.theme);
+  const caches = new Map(THEME_IDS.map(theme => [theme, createSpriteCache(theme)]));
   const canvas = document.createElement('canvas');
   canvas.width = layers[0].width; canvas.height = layers[0].height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
@@ -33,14 +37,17 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
     x: (index % width + rng.next()) * tile, y: (Math.floor(index / width) + rng.next()) * tile,
     offset: rng.next() * Math.PI * 2, length: (.18 + rng.next() * .3) * tile,
   }]);
-  const objects = orderedObjects(map).map(obj => ({
-    obj, offset: hashString(`${map.config.seed}/${obj.id}`) / 0xffffffff * Math.PI * 2,
-    sprite: cache.sprite(obj.asset),
-    tint: obj.asset === 'crystal' || obj.asset === 'altar' || (obj.asset === 'mushrooms' && options.bioluminescence) ? cache.tint(obj.asset) : undefined,
-  }));
+  const objects = orderedObjects(map).map(obj => {
+    const objectTheme = obj.theme ?? theme;
+    const cache = caches.get(objectTheme)!;
+    return { obj, theme: objectTheme, magic: cache.magic,
+      offset: hashString(`${map.config.seed}/${obj.id}`) / 0xffffffff * Math.PI * 2,
+      sprite: cache.sprite(obj.asset),
+      tint: obj.asset === 'crystal' || obj.asset === 'altar' || (obj.asset === 'mushrooms' && options.bioluminescence) ? cache.tint(obj.asset) : undefined,
+    };
+  });
   const lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
   const lilies = objects.filter(({obj}) => obj.asset === 'lilies');
-  const warm = theme === 'dark' ? '218,135,67' : theme === 'anime' ? '255,203,111' : '255,183,79';
   return {
     frame(timeMs) {
       const phase = loopPhase(timeMs);
@@ -64,8 +71,9 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
         }
         ctx.restore();
       }
-      if (lighting.enabled && lighting.halos > 0) for (const {obj, offset} of lights) {
+      if (lighting.enabled && lighting.halos > 0) for (const {obj, offset, theme} of lights) {
         const fire = obj.asset === 'torch' || obj.asset === 'campfire';
+        const warm = theme === 'dark' ? '218,135,67' : theme === 'anime' ? '255,203,111' : '255,183,79';
         const color = fire ? warm : theme === 'dark' ? '196,116,168' : theme === 'anime' ? '194,166,255' : '141,223,189';
         const pulse = fire ? lightPulse(phase,offset) : .65 + .25 * Math.sin(phase+offset);
         const glowStrength = lighting.halos / 100;
@@ -75,11 +83,11 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
         glow.addColorStop(.45, `rgba(${color},${pulse * .09 * glowStrength})`); glow.addColorStop(1, `rgba(${color},0)`);
         ctx.fillStyle = glow; ctx.fillRect(x-radius, y-radius, radius*2, radius*2);
       }
-      for (const {obj, offset, sprite, tint} of objects) {
+      for (const {obj, offset, sprite, tint, theme, magic} of objects) {
         const pulse = lightPulse(phase, offset), size = obj.scale * tile;
         ctx.save(); ctx.translate(obj.x * tile, obj.y * tile); ctx.rotate(obj.rotation); ctx.scale(size / 128, size / 128);
         drawSprite(ctx, sprite, obj.asset, phase, offset);
-        if (tint) drawMagic(ctx, obj.asset, phase, offset, cache.magic, tint);
+        if (tint) drawMagic(ctx, obj.asset, phase, offset, magic, tint);
         if (obj.asset === 'flowers' || (obj.asset === 'tree-gold' && theme === 'anime')) drawPetals(ctx, phase, offset, theme);
         if (obj.asset !== 'torch' && obj.asset !== 'campfire') { ctx.restore(); continue; }
         // Inner flames flicker independently; the original stones, logs and torch stay still.
@@ -103,6 +111,6 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
       ctx.drawImage(layers[2], 0, 0);
       return canvas;
     },
-    dispose() { cache.dispose(); for (const layer of [...layers, canvas]) { layer.width = 1; layer.height = 1; } },
+    dispose() { for (const cache of caches.values()) cache.dispose(); for (const layer of [...layers, canvas]) { layer.width = 1; layer.height = 1; } },
   };
 }

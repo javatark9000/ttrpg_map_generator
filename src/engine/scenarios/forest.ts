@@ -5,17 +5,14 @@ import type { Random } from '../random';
 import type { PlaceObject } from '../scenario-painter';
 import { buildForestPaths } from './forest-paths';
 import { connectRegions } from './connectivity';
+import { paintForestRiver } from './forest/river';
 
 export function generateForest(map: BattleMap, rng: Random, object: PlaceObject): void {
-  const config=map.config, {width:w,height:h}=config, s=hashString(config.seed), variation=config.complexity/100;
+  const config=map.config, {width:w,height:h}=config, s=hashString(config.seed);
   const at=(x:number,y:number)=>map.terrain[y*w+x];
   const set=(x:number,y:number,t:'path'|'water'|'sand')=>{if(x>=0&&y>=0&&x<w&&y<h)map.terrain[y*w+x]=t;};
   const clamp=(n:number,low:number,high:number)=>Math.max(low,Math.min(high,n));
-  const riverX=(y:number)=>w*.67+Math.sin(y/h*(3+variation*3.6)+s%4)*Math.min(w,h*1.6)*(.02+variation*.064);
-  if(config.water) for(let y=0;y<h;y++)for(let x=0;x<w;x++) {
-    const n=fbm(x*.12,y*.12,s),d=Math.abs(x-riverX(y));
-    if(d<2+n*.4)set(x,y,'sand'); if(d<1.35+n*.3)set(x,y,'water');
-  }
+  paintForestRiver(map);
   const original=map.terrain.slice(), routes=buildForestPaths(config), road=new Uint8Array(w*h);
   for(const route of routes) {
     for(const p of route.points) {
@@ -49,7 +46,7 @@ export function generateForest(map: BattleMap, rng: Random, object: PlaceObject)
   }
   camp={x:clamp(camp.x,3,w-4),y:clamp(camp.y,3,h-4)};
   if(config.landmarks) {
-    for(let y=camp.y-2;y<=camp.y+2;y++)for(let x=camp.x-2;x<=camp.x+2;x++) if(Math.hypot(x-camp.x,y-camp.y)<2.6) set(x,y,config.forestPaths?'path':'sand');
+    for(let y=camp.y-2;y<=camp.y+2;y++)for(let x=camp.x-2;x<=camp.x+2;x++) if(Math.hypot(x-camp.x,y-camp.y)<2.6) set(x,y,main?'path':'sand');
     object('campfire',camp.x+.5,camp.y+.5,1.05);
     object('bedroll',camp.x-1,camp.y+.8,1,-.3); object('bedroll',camp.x+1.4,camp.y-.7,1,.6);
     object('log',camp.x+.1,camp.y-1.3,.9,.12);object('barrels',camp.x+1.5,camp.y+1.5,.7);

@@ -3,6 +3,7 @@ import type { BattleMap, MapObject, RenderOptions, Terrain, Theme } from './type
 import { assetUrl, THEMES, THEME_IDS } from './themes';
 import { fbm, hashString, Random } from './random';
 import { drawSunlight, lightingFor } from './lighting';
+import { mapForActiveLayer } from './map-layers';
 
 const images = new Map<string, HTMLImageElement>();
 export async function loadAssets(): Promise<void> {
@@ -13,7 +14,11 @@ export async function loadAssets(): Promise<void> {
     images.set(`${theme}/${id}`, image);
   })));
 }
-export function assetImage(id: string, theme: Theme): HTMLImageElement | undefined { return images.get(`${theme}/${id}`); }
+export function assetImage(id: string, theme: Theme): HTMLImageElement {
+  const image = images.get(`${theme}/${id}`);
+  if (!image) throw new Error(`No se cargó la ilustración ${theme}/${id}.`);
+  return image;
+}
 
 // Trace cell boundaries into closed polygons; rounded corners soften organic terrain.
 export function terrainPath(map: BattleMap, test: (t: Terrain) => boolean, tile: number, round = true): Path2D {
@@ -75,7 +80,6 @@ function colorField(ctx: CanvasRenderingContext2D, width: number, height: number
 }
 function texture(ctx: CanvasRenderingContext2D, name: string, width: number, height: number, opacity: number, tile: number, theme: Theme): void {
   const image = assetImage(`terrain-${name}`, theme);
-  if (!image) return;
   // Rasterize SVG tiles explicitly: browser SVG patterns otherwise depend on viewport sizing.
   const stamp = document.createElement('canvas'); stamp.width = 128; stamp.height = 128;
   stamp.getContext('2d')!.drawImage(image, 0, 0, 128, 128);
@@ -92,6 +96,7 @@ export function orderedObjects(map: BattleMap): MapObject[] {
 
 /** Optional layer capture is used by the animation renderer; ordinary exports remain unchanged. */
 export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], drawObjects = true): HTMLCanvasElement {
+  map = mapForActiveLayer(map);
   const { width: w, height: h, biome, theme } = map.config;
   const palette = THEMES[theme];
   const lighting = lightingFor(map, options);
@@ -114,7 +119,7 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
   texture(ctx, baseTerrain === 'grass' ? 'grass' : 'stone', width, height, theme === 'anime' ? .35 : theme === 'dark' ? .65 : .52, tile, theme);
 
   if (!forest) {
-    const floor = terrainPath(map, t => t !== 'wall' && t !== 'rock', tile, cave);
+    const floor = terrainPath(map, t => t !== 'wall' && t !== 'rock' && t !== 'void', tile, cave);
     ctx.strokeStyle = ink(cave ? '#1a2c2d' : '#191f1c', '#15151d', '#414662'); ctx.lineWidth = tile * 0.42; ctx.stroke(floor);
     ctx.strokeStyle = ink(cave ? '#768578' : '#a09f82', '#716c65', '#a2a9ce'); ctx.lineWidth = tile * 0.17; ctx.stroke(floor);
     ctx.save(); ctx.clip(floor);
@@ -196,11 +201,22 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
     ctx.restore();
   }
 
+  if (map.terrain.includes('void')) {
+    const chasm = terrainPath(map, t => t === 'void', tile, cave);
+    ctx.save();
+    ctx.strokeStyle = ink('#514a41', '#37333d', '#797396');
+    ctx.lineWidth = tile * .3; ctx.stroke(chasm);
+    ctx.clip(chasm);
+    colorField(ctx, width, height, seed + 17, ...palette.terrain.void, tile);
+    ctx.strokeStyle = '#00000099'; ctx.lineWidth = tile * .55; ctx.stroke(chasm);
+    ctx.restore();
+  }
+
   // Fine pebbles, grass blades and leaf litter add scale without obstructing play.
   for (let i = 0; i < w * h * 3; i++) {
     const x = rng.next() * width, y = rng.next() * height;
     const t = map.terrain[Math.floor(y / tile) * w + Math.floor(x / tile)];
-    if (t === 'water' || t === 'wall' || t === 'rock') continue;
+    if (t === 'water' || t === 'wall' || t === 'rock' || t === 'void') continue;
     ctx.fillStyle = t === 'snow' ? '#f9fdff77' : rng.next() > .5 ? '#ded0a744' : '#2d432d38';
     ctx.beginPath(); ctx.ellipse(x, y, tile * (.007 + rng.next() * .025), tile * .013, rng.next() * 6, 0, Math.PI * 2); ctx.fill();
     if (t === 'grass' && rng.next() > .35) {
@@ -212,18 +228,20 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
   splitLayer();
   const objects = drawObjects ? orderedObjects(map) : [];
   for (const obj of objects) {
-    const image = assetImage(obj.asset, theme); if (!image) continue;
+    const objectTheme = obj.theme ?? theme;
+    const image = assetImage(obj.asset, objectTheme);
+    const objectInk = (vanilla: string, dark: string, anime: string) => objectTheme === 'dark' ? dark : objectTheme === 'anime' ? anime : vanilla;
     const size = obj.scale * tile, x = obj.x * tile, y = obj.y * tile;
     if (lighting.enabled && lighting.halos > 0 && ['campfire', 'crystal', 'torch', 'altar'].includes(obj.asset)) {
       ctx.save(); ctx.globalAlpha = lighting.halos / 100;
       const warm = obj.asset === 'campfire' || obj.asset === 'torch';
       const radius = tile * (warm ? 3.5 : 2.0);
       const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      glow.addColorStop(0, warm ? ink('#f5be6688', '#d79b5c88', '#ffe2a788') : ink('#8cdfbd45', '#b36a9955', '#d5b8ff88')); glow.addColorStop(.4, warm ? '#f5be6625' : ink('#8cdfbd18', '#ac58731a', '#b9b3ff25')); glow.addColorStop(1, '#00000000');
+      glow.addColorStop(0, warm ? objectInk('#f5be6688', '#d79b5c88', '#ffe2a788') : objectInk('#8cdfbd45', '#b36a9955', '#d5b8ff88')); glow.addColorStop(.4, warm ? '#f5be6625' : objectInk('#8cdfbd18', '#ac58731a', '#b9b3ff25')); glow.addColorStop(1, '#00000000');
       ctx.fillStyle = glow; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2); ctx.restore();
     }
     ctx.save(); ctx.translate(x, y); ctx.rotate(obj.rotation);
-    ctx.shadowColor = ink(obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88', '#060a10bb', '#35466566');
+    ctx.shadowColor = obj.asset === 'window' ? 'transparent' : objectInk(obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88', '#060a10bb', '#35466566');
     ctx.shadowBlur = tile * (obj.asset.startsWith('tree') ? .22 : .09); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.drawImage(image, -size / 2, -size / 2, size, size); ctx.restore();
   }

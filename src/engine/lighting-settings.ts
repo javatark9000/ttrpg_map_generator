@@ -1,4 +1,6 @@
 import type { AssetId, Biome } from './types';
+import { NEW_ASSET_HEIGHTS } from './new-assets';
+import type { NewAssetId } from './new-assets';
 
 export interface LightingSettings {
   enabled: boolean;
@@ -49,7 +51,8 @@ export function lightingProfile(biome: Biome): { outdoor: boolean; beams: boolea
   switch (biome) {
     case 'forest': return { outdoor: true, beams: true, description: 'Bosque · Haces fragmentados entre las copas y sombras de los árboles.' };
     case 'ruins': return { outdoor: true, beams: true, description: 'Ruinas · Haces en zonas abiertas, recortados por muros y estructuras.' };
-    case 'village': return { outdoor: true, beams: false, description: 'Pueblo · Luz ambiental y sombras de tejados. Sin haces sobre las casas.' };
+    case 'city':
+    case 'village': return { outdoor: true, beams: false, description: 'Exterior urbano · Luz ambiental y sombras de tejados. Sin haces sobre las casas.' };
     case 'mountain': return { outdoor: true, beams: false, description: 'Montaña · Luz direccional y sombras frías de los bordes rocosos. Sin haces.' };
     default: return { outdoor: false, beams: false, description: 'Interior · Sin sol directo. Puedes ajustar la viñeta y los halos de fuego y magia.' };
   }
@@ -60,6 +63,7 @@ export function shadowVector(direction: number): { x: number; y: number } {
 }
 /** Approximate heights, not navigation obstacles or a physical 3D model. */
 export function casterHeight(asset: AssetId): number {
+  if (Object.hasOwn(NEW_ASSET_HEIGHTS, asset)) return NEW_ASSET_HEIGHTS[asset as NewAssetId];
   if (asset.startsWith('tree-')) return 1.8;
   if (asset.startsWith('roof-')) return 1.2;
   if (['pillar', 'broken-pillar', 'archway', 'statue', 'stalagmite'].includes(asset)) return .85;

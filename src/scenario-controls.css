@@ -4,7 +4,6 @@
   .scenario-options > .section-heading > .icon { width: 15px; height: 15px; color: var(--gold-muted); }
   .scenario-hint { margin: 9px 0 10px; color: var(--muted); font-size: 9px; line-height: 1.7; }
   .scenario-hint.subtle { opacity: .8; font-size: 8px; margin-bottom: 0; }
-  #room-count { margin-top: 13px; }
   .path-layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 9px 0 10px; }
   .path-card { display: flex; flex-direction: column; align-items: stretch; border: 1px solid #82947630; border-radius: 7px; background: #ffffff04; overflow: hidden; padding: 4px 4px 7px; gap: 5px; text-align: center; color: var(--muted); transition: border-color .15s, background .15s; }
   .path-card:hover { border-color: var(--gold-muted); background: #ffffff0b; }
@@ -21,6 +20,25 @@
   .scenario-check md-checkbox { flex: none; margin-left: -9px; --md-checkbox-container-size: 16px; }
   .scenario-check small { display: block; color: var(--muted); font-size: 8px; margin-top: 2px; }
   .scenario-summary { flex: none; font-size: 9px; border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); padding: 3px 6px; color: var(--gold); border-radius: 4px; white-space: nowrap; }
+  .scenario-control-grid, .scenario-number-grid { display: grid; gap: 8px; margin-top: 12px; }
+  .scenario-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .scenario-number-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .scenario-control-grid > *, .scenario-number-grid > * { min-width: 0; }
+  .scenario-fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px 10px; margin-top: 13px; }
+  .scenario-fieldset legend { color: var(--muted); font-size: 9px; padding: 0 5px; }
+  .scenario-check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 5px; }
+  .scenario-check-grid .scenario-check { min-width: 0; }
+  .scenario-error { margin: 12px 0 0; padding: 9px; border: 1px solid #d4987744; background: #ac654415; border-radius: 6px; }
+  .legacy-room-count { margin-top: 10px; padding: 10px; border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--gold) 6%, transparent); }
+  .legacy-room-count strong, .legacy-room-count span { display: block; }
+  .legacy-room-count strong { color: var(--gold); font-size: 10px; }
+  .legacy-room-count span { margin-top: 4px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+  .legacy-room-count md-text-button { margin: 5px 0 -5px -12px; }
+  #forest-river-direction, #mountain-path-layout, #mountain-cave-entrances,
+  #house-bedrooms, #inn-room-count, #smithy-extra-room-count,
+  #temple-transition, #warehouse-shelf-layout { margin-top: 11px; }
+  #city-options .scenario-control-grid { margin: 15px 0 4px; }
+  #warehouse-options md-slider, #barracks-options md-slider { margin-bottom: 5px; }
 }
 @layer responsive {
   @media (max-width: 1150px) { .scenario-summary { font-size: 8px; } }
