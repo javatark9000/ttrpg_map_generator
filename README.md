@@ -16,9 +16,6 @@ Abrir **http://127.0.0.1:5180**, o el puerto que indique Vite. El servidor solo 
 ```bash
 npm run build       # TypeScript + compilación a dist/
 npm run preview     # Servir la compilación
-npm test            # Pruebas del motor, temas, assets, dimensiones y migración
-npx playwright install chromium
-npm run test:e2e     # Pruebas de navegador y descargas reales
 npm run assets      # Recrear Vanilla y sus variantes Dark/Anime
 ```
 
@@ -223,11 +220,21 @@ src/
     themes.ts                Paletas y configuración de los tres mundos
     dimensions.ts            Formatos, límites y relaciones de aspecto
     random.ts                PRNG con semilla y ruido fractal
-    generate.ts              Coordinación de escenarios y conectividad
+    generate.ts              Validación, mapa base y despacho de escenarios
+    scenarios/               Un módulo de generación por tipo de mapa
+      index.ts               Registro y despacho de los siete generadores
+      connectivity.ts        Regiones transitables y conexiones compartidas
+      forest.ts              Entrada del bosque y sus rutas
+      dungeon.ts             Habitaciones, corredores y decoración
+      cave.ts                Autómata celular, lagunas y decoración
+      ruins.ts               Recintos deteriorados y vegetación
+      village.ts             Parcelas, calles, plazas y estanques
+      mountain.ts            Pasos, roca, nieve y campamentos
+      building.ts            Entrada de los interiores especializados
     dungeon-rooms.ts         BSP automático o con cuota exacta de cuartos
     forest-paths.ts          Trazados, curvas, rutas alternas y callejones
     forest.ts                Terreno, puentes y decoración sobre la red
-    landscapes.ts            Ruinas, pueblos y montaña
+    landscapes.ts            Exportaciones de compatibilidad
     buildings.ts             Ocho tipos de interiores y su mobiliario
     scenario-painter.ts      Primitivas de pintura y colocación acotada
     scenario-options.ts      Catálogo de miniaturas y validación compartida
@@ -255,11 +262,7 @@ scripts/
 
 La vista y la exportación comparten el renderizador. El ruido se muestrea en coordenadas del mundo para conservar el paisaje al cambiar resolución. La generación y la codificación GIF se ejecutan en Web Workers separados; el dibujo Canvas 2D y las exportaciones estáticas permanecen en el hilo principal.
 
-## Verificación y límites
-
-Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 153 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG/GIF y vista móvil. Las pruebas de animación verifican pausa, movimiento reducido, ondas bajo los puentes, ciclos cerrados, cancelación y recuperación ante errores del worker. También comprueban cada objeto animado en las tres temáticas, las bases inmóviles de las plantas, la oclusión por estructuras, la bioluminiscencia opcional y la conservación de los movimientos nuevos en GIF. Los GIF se decodifican con un lector independiente (`omggif`) para comprobar dimensiones, fotogramas distintos, duración y repetición infinita. Las pruebas del motor cubren semillas, los 21 cruces de tema/escenario y los ocho tipos de edificio en cada temática y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
-
-Los nuevos controles, terrenos, objetos y tipos de edificio también se verifican en guardado/recarga, edición, historial, exportación PNG/GIF y móvil. Las pruebas de iluminación cubren dirección real de las sombras, bloqueo de haces por muros, ausencia de haces en pueblos, controles a cero, equivalencia estática/animada del terreno en las tres temáticas, validación de JSON, persistencia, historial agrupado, navegación por teclado y panel móvil.
+## Límites
 
 La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras o edificios, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
 

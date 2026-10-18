@@ -7,8 +7,6 @@
     "dev": "vite --host 127.0.0.1 --port 5180",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run",
-    "test:e2e": "playwright test",
     "assets": "node scripts/create-assets.mjs && node scripts/create-expansion-assets.mjs && node scripts/create-theme-assets.mjs"
   },
   "dependencies": {
@@ -18,12 +16,8 @@
     "gifenc": "^1.0.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",
-    "@types/omggif": "^1.0.5",
-    "omggif": "^1.0.10",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^4.1.11"
+    "vite": "^6.3.5"
   }
 }
