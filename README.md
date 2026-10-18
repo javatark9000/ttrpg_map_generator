@@ -79,7 +79,8 @@ Los pueblos son **vistas exteriores**, no una colección de interiores interacti
 Al seleccionar **Mazmorra** aparece **Cuartos de la mazmorra**:
 
 - **Cantidad automática** mantiene la generación BSP anterior, dependiente del tamaño y la complejidad.
-- Desactivar esa opción permite introducir la **cantidad exacta** de cuartos, desde 1 hasta el límite indicado para el tamaño actual (máximo manual: 40).
+- El campo **Cantidad exacta de cuartos** siempre se puede editar, salvo durante la generación. Escribir un número desactiva automáticamente **Cantidad automática** y solicita esa cantidad exacta, desde 1 hasta el límite indicado para el tamaño actual (máximo manual: 40).
+- En modo automático el campo aparece vacío con la indicación **Automático**, no con un 6 fijo. También puedes desactivar el interruptor manualmente; recupera la última cantidad escrita en la sesión o propone una inicial editable. Pulsa **Generar mapa** para aplicar el cambio.
 - Cada cuarto tiene al menos **4 × 4 casillas** y una separación de muros. La división BSP reserva capacidad para cumplir la cantidad solicitada en cualquier semilla, no simplemente un número de intentos de colocación.
 - Si el mapa es demasiado pequeño para la cantidad elegida, aparece una explicación y se desactiva Generar; no se reduce la cantidad en silencio.
 - El encabezado muestra el número generado. La propiedad `rooms` del JSON conserva las áreas originales; pintar manualmente no recalcula ese conteo.
@@ -142,6 +143,25 @@ Las semillas nuevas comienzan con **`RC-`**; la inicial es `RC-7429`. El dado pr
 | Rehacer | Ctrl/Cmd + Shift + Z o Ctrl/Cmd + Y |
 | Desplazar con cualquier herramienta | Alt + arrastrar, botón derecho o central |
 
+## Iluminación editable
+
+La pestaña **Iluminación**, junto a Crear mundo y Objetos, aplica los cambios al mapa actual **sin regenerar terreno ni objetos**. Incluye:
+
+- Interruptor general y **luz solar** independiente.
+- **Intensidad**, **origen de la luz** (0° norte, 90° este, 180° sur, 270° oeste) y **calidez**. La flecha apunta hacia el origen; las sombras se proyectan al lado opuesto.
+- **Haces de luz:** activar/desactivar, intensidad, anchura y cantidad. Son varios haces elípticos de bordes difuminados, con un patrón determinista por semilla, en vez de una franja diagonal fija.
+- **Sombras solares:** activar/desactivar, intensidad, longitud y suavidad.
+- **Viñeta** y **halos de fuego y magia**, con intensidades independientes; 0 elimina el efecto correspondiente.
+- **Restablecer iluminación** y deshacer/rehacer; un arrastre completo de un deslizador ocupa un solo paso de historial.
+
+El bosque fragmenta la luz entre las copas; las ruinas recortan los haces por muros y estructuras. Pueblos y montañas usan iluminación ambiental direccional y sombras, **sin haces**; la montaña utiliza sombras más frías. En mazmorras, cavernas e interiores se deshabilitan los controles solares y permanecen disponibles viñeta y halos. Los valores inactivos se conservan para otros escenarios.
+
+La proyección es **una aproximación 2D con huellas y alturas estimadas**, no un cálculo físico 3D. Árboles, tejados, muros, roca y otras estructuras proyectan máscaras suaves; las superposiciones no acumulan oscuridad. Los haces se recortan por las huellas y sus sombras y se dibujan sobre el terreno, por debajo de los objetos. El sombreado propio de los SVG y las pequeñas sombras de contacto permanecen, incluso al apagar las sombras solares.
+
+La luz solar es **estática**, también en GIF. Se cachea con el terreno, sin recalcularla cada fotograma; las máscaras tienen un máximo de 1024 px por lado y se muestrean en coordenadas del mundo para mantener el patrón entre resoluciones. No se añaden movimientos de nubes ni barridos de luz.
+
+Los ajustes se guardan en el campo opcional `lighting` del JSON versión 2, en el navegador y en las exportaciones **PNG/JPEG/GIF**. Se conservan al generar otro mapa y cambiar de temática; abrir otro proyecto usa los ajustes de ese archivo. Los proyectos anteriores usan valores predeterminados sin cambiar geometría. Los valores inválidos se rechazan al importar y los campos ausentes reciben sus valores predeterminados. El botón **Atmósfera** es el interruptor general de esta pestaña: se guarda en el proyecto y se puede deshacer; apagarlo no borra los valores individuales.
+
 ## Agua, magia y vegetación animadas
 
 Las animaciones comparten un **bucle determinista de 2,4 segundos**, con fases distintas por objeto para evitar movimientos sincronizados. Funcionan en los siete escenarios y las tres temáticas, también con agua pintada y objetos colocados manualmente.
@@ -159,14 +179,14 @@ Las animaciones comparten un **bucle determinista de 2,4 segundos**, con fases d
 | Roble otoñal de Anime | Pétalos de cerezo además del movimiento de la copa |
 | Setas | Bioluminiscencia opcional, desactivada de forma predeterminada |
 
-La opción **Dale personalidad → Setas bioluminiscentes** se aplica inmediatamente a la vista animada y al GIF. Es una preferencia de renderizado de la sesión, como la atmósfera: no modifica el JSON ni el historial, no se guarda al recargar y no altera PNG/JPEG. Con la animación pausada se muestra la ilustración estática original.
+La opción **Dale personalidad → Setas bioluminiscentes** se aplica inmediatamente a la vista animada y al GIF. Es una preferencia de renderizado de la sesión, a diferencia de los ajustes de Iluminación: no modifica el JSON ni el historial, no se guarda al recargar y no altera PNG/JPEG. Con la animación pausada se muestra la ilustración estática original.
 
 Rocas, huesos, troncos caídos, muebles, cofres, puertas, puentes, escaleras y demás estructuras permanecen estáticos. No se añaden ciclos de apertura/cierre ni interacciones con cofres o puertas.
 
 - **Animación**, junto a Cuadrícula y Atmósfera, permite pausar o reanudar la vista sin modificar el mapa ni su historial.
 - Se respeta la preferencia de **movimiento reducido** del sistema: la vista comienza pausada y puede activarse explícitamente.
 - El movimiento se suspende cuando la pestaña está oculta y durante los diálogos. Los mapas sin agua ni objetos animables no mantienen un ciclo de repintado.
-- **Atmósfera** controla los halos, pero no desactiva las ondas, llamas, runas, destellos ni el balanceo.
+- **Atmósfera** activa/desactiva la luz solar, los haces, las sombras solares, la viñeta y los halos. No desactiva ondas, llamas, runas, destellos ni balanceo; el deslizador de halos permite atenuar solo los resplandores.
 - La vista animada utiliza capas y sprites rasterizados en caché y una resolución acotada; no regenera terreno o ruido en cada fotograma. Cada sprite se comparte entre objetos del mismo tipo. Objetos y efectos se dibujan en orden de profundidad: los árboles y estructuras superiores ocultan las llamas, runas o partículas que quedan debajo. Los SVG originales siguen siendo estáticos y no se han modificado.
 - Las animaciones se reconstruyen a partir del terreno, objetos y semilla del JSON existente: no hace falta migrar ni guardar fotogramas. La pausa es una opción de vista, no una propiedad del proyecto.
 
@@ -197,6 +217,7 @@ src/
   main.ts                    Interfaz y coordinación del editor
   style.css / themes.css     Estilos, adaptación y temáticas de interfaz
   viewport.ts                Cámara, navegación y previsualización de objetos
+  lighting-panel.ts          Pestaña Iluminación y controles accesibles
   engine/
     types.ts                 Modelo, temática y catálogo de objetos
     themes.ts                Paletas y configuración de los tres mundos
@@ -212,6 +233,8 @@ src/
     scenario-options.ts      Catálogo de miniaturas y validación compartida
     generate.worker.ts       Generación en Web Worker
     render.ts                Renderizado por capas y exportación temática
+    lighting-settings.ts     Valores, perfiles, dirección y validación de iluminación
+    lighting.ts              Luz ambiental, haces y máscaras de sombras 2D
     animation.ts             Ondas y composición animada en orden de profundidad
     animated-objects.ts      Sprites compartidos, vegetación, magia y pétalos
     animation-settings.ts    Duración, fotogramas y límites de resolución
@@ -236,7 +259,7 @@ La vista y la exportación comparten el renderizador. El ruido se muestrea en co
 
 Pruebas automatizadas en Chromium: selección de temas, historial, biblioteca, carga y render de **los 153 SVG**, guardado/recarga, migración, formularios de tamaño, descarga PNG/JPEG/GIF y vista móvil. Las pruebas de animación verifican pausa, movimiento reducido, ondas bajo los puentes, ciclos cerrados, cancelación y recuperación ante errores del worker. También comprueban cada objeto animado en las tres temáticas, las bases inmóviles de las plantas, la oclusión por estructuras, la bioluminiscencia opcional y la conservación de los movimientos nuevos en GIF. Los GIF se decodifican con un lector independiente (`omggif`) para comprobar dimensiones, fotogramas distintos, duración y repetición infinita. Las pruebas del motor cubren semillas, los 21 cruces de tema/escenario y los ocho tipos de edificio en cada temática y formatos de hasta **1:15 / 15:1**. También verifican cantidades exactas de cuartos, capacidad, ausencia de solapamientos, conectividad de las redes, los siete trazados, opciones secundarias independientes y generación sin caminos. Las pruebas de navegador comprueban las miniaturas, casillas, validación dinámica, persistencia y controles móviles.
 
-Los nuevos controles, terrenos, objetos y tipos de edificio también se verifican en guardado/recarga, edición, historial, exportación PNG/GIF y móvil.
+Los nuevos controles, terrenos, objetos y tipos de edificio también se verifican en guardado/recarga, edición, historial, exportación PNG/GIF y móvil. Las pruebas de iluminación cubren dirección real de las sombras, bloqueo de haces por muros, ausencia de haces en pueblos, controles a cero, equivalencia estática/animada del terreno en las tres temáticas, validación de JSON, persistencia, historial agrupado, navegación por teclado y panel móvil.
 
 La edición manual puede desconectar zonas. No hay reglas de cobertura, niebla de guerra, encuentros ni navegación de personajes. El agua procedural no se utiliza en mazmorras o edificios, aunque se puede pintar manualmente. Las exportaciones grandes pueden tardar varios segundos.
 

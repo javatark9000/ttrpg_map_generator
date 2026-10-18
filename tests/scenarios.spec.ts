@@ -29,6 +29,32 @@ test('dungeon controls generate the exact requested rooms and persist through pr
   await expect(page.locator('#scenario-summary')).toHaveText('9 cuartos');
 });
 
+test('typing the room count directly enables manual mode and is not fixed at six', async ({ page }) => {
+  await page.locator('[data-biome="dungeon"]').click();
+  const field = page.locator('#room-count'), input = field.locator('input');
+  await expect(page.locator('#rooms-auto')).toHaveJSProperty('selected', true);
+  await expect(field).toHaveJSProperty('disabled', false);
+  await expect(input).toHaveValue('');
+  for (const count of [12, 25, 3]) {
+    await input.click(); await input.press('ControlOrMeta+A'); await input.pressSequentially(String(count));
+    await expect(input).toHaveValue(String(count));
+    await expect(page.locator('#rooms-auto')).toHaveJSProperty('selected', false);
+    await page.locator('#generate').click(); await expect(page.locator('#loading')).toBeHidden();
+    await expect(page.locator('#scenario-summary')).toHaveText(`${count} cuartos`);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('rc-map-v2')!));
+    expect(saved.config.roomCount).toBe(count); expect(saved.rooms).toHaveLength(count);
+  }
+  await page.locator('#rooms-auto').click(); await expect(input).toHaveValue('');
+  await expect(field).toHaveJSProperty('disabled', false);
+  await page.locator('#rooms-auto').click(); await expect(input).toHaveValue('3');
+  await input.fill('31'); await expect(page.locator('#room-error')).toContainText('caben hasta 30');
+  await expect(page.locator('#generate')).toHaveJSProperty('disabled', true);
+  await input.fill(''); await expect(page.locator('#generate')).toHaveJSProperty('disabled', true);
+  await page.locator('#rooms-auto').click(); await page.locator('#generate').click(); await expect(page.locator('#loading')).toBeHidden();
+  await page.reload(); await expect(page.locator('#loading')).toBeHidden();
+  await expect(page.locator('#rooms-auto')).toHaveJSProperty('selected', true); await expect(input).toHaveValue('');
+});
+
 test('room constraints react to resized maps and switching back to automatic mode', async ({ page }) => {
   await page.locator('[data-biome="dungeon"]').click(); await page.locator('#rooms-auto').click();
   await page.locator('#room-count').locator('input').fill('9');

@@ -19,7 +19,7 @@ export function createSpriteCache(theme: Theme) {
         sprite = document.createElement('canvas'); sprite.width = sprite.height = SIDE;
         const ctx = sprite.getContext('2d')!, image = assetImage(asset, theme);
         ctx.shadowColor = theme === 'dark' ? '#060a10bb' : theme === 'anime' ? '#35466566' : asset.startsWith('tree') ? '#10251caa' : '#12221b88';
-        ctx.shadowBlur = asset.startsWith('tree') ? 10 : 6; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 7;
+        ctx.shadowBlur = asset.startsWith('tree') ? 10 : 6; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
         if (image) ctx.drawImage(image, PAD, PAD, 128, 128);
         sprites.set(asset, sprite);
       }

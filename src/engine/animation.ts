@@ -3,6 +3,7 @@ import { orderedObjects, renderMap, terrainPath } from './render';
 import { ANIMATED_ASSETS, createSpriteCache, drawMagic, drawPetals, drawSprite } from './animated-objects';
 import { hashString, Random } from './random';
 import { lightPulse, loopPhase } from './animation-settings';
+import { lightingFor } from './lighting';
 
 export interface AnimatedScene {
   frame(timeMs: number): HTMLCanvasElement;
@@ -17,6 +18,7 @@ export function hasAnimation(map: BattleMap, options: Pick<RenderOptions, 'biolu
  * No procedural map regeneration and no SVG decoding per frame. */
 export function createAnimatedScene(map: BattleMap, tile: number, options: RenderOptions): AnimatedScene {
   const layers: HTMLCanvasElement[] = [];
+  const lighting = lightingFor(map, options);
   renderMap(map, tile, options, layers, false);
   // The object layer is intentionally empty; small shared sprites replace it.
   layers[1].width = layers[1].height = 1;
@@ -62,14 +64,15 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
         }
         ctx.restore();
       }
-      if (options.atmosphere) for (const {obj, offset} of lights) {
+      if (lighting.enabled && lighting.halos > 0) for (const {obj, offset} of lights) {
         const fire = obj.asset === 'torch' || obj.asset === 'campfire';
         const color = fire ? warm : theme === 'dark' ? '196,116,168' : theme === 'anime' ? '194,166,255' : '141,223,189';
         const pulse = fire ? lightPulse(phase,offset) : .65 + .25 * Math.sin(phase+offset);
+        const glowStrength = lighting.halos / 100;
         const x = obj.x * tile, y = obj.y * tile, radius = tile * (fire ? 2.3 + pulse*.8 : obj.asset === 'mushrooms' ? 1 : 2);
         const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-        glow.addColorStop(0, `rgba(${color},${pulse * .26})`);
-        glow.addColorStop(.45, `rgba(${color},${pulse * .09})`); glow.addColorStop(1, `rgba(${color},0)`);
+        glow.addColorStop(0, `rgba(${color},${pulse * .26 * glowStrength})`);
+        glow.addColorStop(.45, `rgba(${color},${pulse * .09 * glowStrength})`); glow.addColorStop(1, `rgba(${color},0)`);
         ctx.fillStyle = glow; ctx.fillRect(x-radius, y-radius, radius*2, radius*2);
       }
       for (const {obj, offset, sprite, tint} of objects) {

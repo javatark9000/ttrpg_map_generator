@@ -28,6 +28,9 @@ import { parseMap, STORAGE_KEY, LEGACY_STORAGE_KEY } from './engine/storage';
 import { Viewport } from './viewport';
 import type { Tool } from './viewport';
 import { icon } from './icons';
+import { DEFAULT_LIGHTING } from './engine/lighting-settings';
+import type { LightingSettings } from './engine/lighting-settings';
+import { lightingPanel, bindLightingControls, syncLightingControls } from './lighting-panel';
 import './style.css';
 import './themes.css';
 import './scenario-controls.css';
@@ -57,7 +60,7 @@ $('#app').innerHTML = `
   <aside class="sidebar" aria-label="Configuración del mapa">
     <div class="sidebar-top"><span class="eyebrow">TU PRÓXIMA AVENTURA</span>${iconButton('close-sidebar', 'close', 'Cerrar panel')}</div>
     <div class="theme-picker" role="group" aria-label="Temática del mundo">${THEME_IDS.map(theme => `<button class="theme-card ${theme === 'vanilla' ? 'selected' : ''}" data-theme="${theme}" aria-pressed="${theme === 'vanilla'}" title="${THEMES[theme].description}"><img src="${assetUrl('tree-oak', theme)}" alt=""/><span>${THEMES[theme].name}</span></button>`).join('')}</div><p id="theme-description" class="theme-description">${THEMES.vanilla.description}</p>
-    <div class="panel-tabs" role="tablist" aria-label="Panel del editor"><button id="tab-world" class="panel-tab active" role="tab" aria-selected="true" aria-controls="world-panel">${icon('map')} Crear mundo</button><button id="tab-assets" class="panel-tab" role="tab" aria-selected="false" aria-controls="assets-panel">${icon('layers')} Objetos <span>${ASSETS.length}</span></button></div>
+    <div class="panel-tabs" role="tablist" aria-label="Panel del editor"><button id="tab-world" class="panel-tab active" role="tab" aria-selected="true" aria-controls="world-panel">${icon('map')} Crear mundo</button><button id="tab-assets" class="panel-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="assets-panel">${icon('layers')} Objetos <span>${ASSETS.length}</span></button><button id="tab-lighting" class="panel-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="lighting-panel">${icon('sun')} Iluminación</button></div>
     <section id="world-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-world">
       <div class="section-heading"><h2>Elige un escenario</h2><span class="step-number">01</span></div>
       <div class="biome-list">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}" title="${b.subtitle}"><span class="biome-art ${key}"><img src="${assetUrl(b.art, 'vanilla')}" alt=""/></span><span class="biome-info"><strong>${b.name}</strong><small>${b.subtitle}</small></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
@@ -83,7 +86,7 @@ $('#app').innerHTML = `
       <section id="dungeon-options" class="scenario-options" aria-label="Distribución de la mazmorra" hidden>
         <div class="section-heading"><h2>Cuartos de la mazmorra</h2>${icon('castle')}</div>
         <label class="toggle-row"><span>Cantidad automática</span><md-switch id="rooms-auto" aria-label="Cantidad automática de cuartos" selected></md-switch></label>
-        <md-outlined-text-field id="room-count" label="Cantidad de cuartos" type="number" inputmode="numeric" min="1" max="30" step="1" value="6" disabled></md-outlined-text-field>
+        <md-outlined-text-field id="room-count" label="Cantidad exacta de cuartos" type="number" inputmode="numeric" min="1" max="30" step="1" placeholder="Automático"></md-outlined-text-field>
         <p id="room-limit" class="scenario-hint">El límite se adapta al tamaño del mapa.</p><p id="room-error" class="size-error" role="alert" hidden></p>
       </section>
       <section id="forest-options" class="scenario-options" aria-label="Caminos del bosque">
@@ -119,6 +122,7 @@ $('#app').innerHTML = `
       <div class="asset-grid">${ASSETS.map(a => `<button class="asset-card" data-asset="${a.id}" data-category="${a.category}" title="Colocar ${a.name}" aria-pressed="false"><img src="${assetUrl(a.id, 'vanilla')}" alt="" loading="lazy"/><span>${a.name}</span></button>`).join('')}</div><p id="no-assets" hidden>No hay objetos con ese nombre.</p>
       <div class="asset-size-controls"><label for="object-scale">Escala del objeto</label><md-slider id="object-scale" aria-label="Escala del objeto" min="50" max="180" value="100" step="10"></md-slider><div class="range-labels"><span>50 %</span><span id="object-scale-value">100 %</span><span>180 %</span></div></div>
     </section>
+    ${lightingPanel()}
     <div class="sidebar-footer"><md-filled-button id="generate">${icon('sparkle', 'button-icon')} Generar mapa</md-filled-button><p>Generación procedural · Sin IA generativa</p></div>
   </aside>
   <main class="workspace">
@@ -152,6 +156,8 @@ let edited = false;
 let assetsReady = false;
 const undoStack: BattleMap[] = [], redoStack: BattleMap[] = [];
 let strokeSnapshot: BattleMap | undefined;
+let lightingSnapshot: BattleMap | undefined;
+let manualRoomCount: string | undefined;
 let previousCell: { x: number; y: number } | undefined;
 let renderTimer: ReturnType<typeof setTimeout> | undefined;
 let toastTimer: ReturnType<typeof setTimeout>;
@@ -165,7 +171,7 @@ function setBusy(value: boolean, label = 'Dibujando otro mundo…'): void {
   busy = value; $('#loading').hidden = !value; $('#loading h2').textContent = label;
   for (const id of ['generate', 'open-export', 'open-project', 'save-project']) ($(`#${id}`) as Field).disabled = value;
   document.querySelectorAll<HTMLButtonElement>('.theme-card').forEach(button => button.disabled = value);
-  updateDimensions();
+  updateDimensions(); syncLightingControls(map, busy);
 }
 function render(fit = false): void {
   if (!map || !assetsReady) return;
@@ -214,11 +220,12 @@ function syncControls(): void {
   $('#decay-value').innerHTML = `${config.ruinDecay}<span>%</span>`;
   ($('#mountain-snow') as Toggle).selected = config.mountainSnow;
   ($('#rooms-auto') as Toggle).selected = config.roomCount === 0;
-  if (config.roomCount > 0) ($('#room-count') as Field).value = String(config.roomCount);
+  ($('#room-count') as Field).value = config.roomCount > 0 ? String(config.roomCount) : '';
+  if (config.roomCount > 0) manualRoomCount = String(config.roomCount);
   ($('#forest-paths') as Checkbox).checked = config.forestPaths;
   ($('#forest-branches') as Checkbox).checked = config.forestBranches;
   ($('#forest-dead-ends') as Checkbox).checked = config.forestDeadEnds;
-  updateDimensions(); syncThemeUI();
+  updateDimensions(); syncThemeUI(); syncLightingControls(map, busy);
   ($('#seed') as Field).value = config.seed;
   ($('#density') as Slider).value = config.density; ($('#complexity') as Slider).value = config.complexity;
   $('#density-value').innerHTML = `${config.density}<span>%</span>`; $('#complexity-value').innerHTML = `${config.complexity}<span>%</span>`;
@@ -250,8 +257,8 @@ function updateDimensions(): void {
   for (const biome of ['building','ruins','village','mountain']) $(`#${biome}-options`).hidden = config.biome !== biome;
   const maximum = maxRoomCount(width, height);
   $('#room-count').setAttribute('max', String(maximum));
-  ($('#room-count') as Field).disabled = busy || ($('#rooms-auto') as Toggle).selected;
-  $('#room-limit').textContent = `De 1 a ${maximum} cuartos en este tamaño. Cada cuarto tiene al menos 4 × 4 casillas. La opción manual respeta la cantidad exacta.`;
+  ($('#room-count') as Field).disabled = busy;
+  $('#room-limit').textContent = `Escribe de 1 a ${maximum} cuartos para usar una cantidad exacta. Escribir desactiva el modo automático. Cada cuarto tiene al menos 4 × 4 casillas. Pulsa Generar mapa para aplicar el cambio.`;
   updatePathControls();
   $('#aspect-ratio').textContent = aspectRatio(width, height);
   $('#cell-total').textContent = error ? `${MIN_SIDE}–${MAX_SIDE} por lado · máx. 6.400` : `${(width * height).toLocaleString('es')} casillas`;
@@ -292,15 +299,22 @@ function confirmReplace(action: () => void): void { pendingConfirm = action; ($(
 worker.onmessage = async (e: MessageEvent<{ map?: BattleMap; error?: string }>) => {
   try {
     if (e.data.error || !e.data.map) throw new Error(e.data.error);
-    map = e.data.map; config = { ...map.config }; edited = false; undoStack.length = 0; redoStack.length = 0;
+    const lighting = map?.lighting;
+    map = e.data.map; if (lighting) map.lighting = { ...lighting };
+    lightingSnapshot = undefined;
+    config = { ...map.config }; edited = false; undoStack.length = 0; redoStack.length = 0;
     await new Promise(resolve => setTimeout(resolve, 30));
     render(pendingFit); saveLocal(); setBusy(false); syncControls();
   } catch (error) { setBusy(false); toast(error instanceof Error ? error.message : 'No se pudo generar el mapa.'); }
 };
 worker.onerror = () => { setBusy(false); toast('No se pudo iniciar el generador. Recarga la página e inténtalo de nuevo.'); };
 
-function selectTab(which: 'world' | 'assets'): void {
-  for (const name of ['world', 'assets']) { $(`#${name}-panel`).hidden = which !== name; $(`#tab-${name}`).classList.toggle('active', which === name); $(`#tab-${name}`).setAttribute('aria-selected', String(which === name)); }
+const panelTabs = ['world', 'assets', 'lighting'] as const;
+function selectTab(which: typeof panelTabs[number]): void {
+  for (const name of panelTabs) {
+    $(`#${name}-panel`).hidden = which !== name;
+    const tab = $(`#tab-${name}`); tab.classList.toggle('active', which === name); tab.setAttribute('aria-selected', String(which === name)); tab.tabIndex = which === name ? 0 : -1;
+  }
 }
 function setTool(tool: Tool): void {
   view.setTool(tool);
@@ -316,7 +330,7 @@ function restoreHistory(redo = false): void {
   if (busy || !map) return;
   const from = redo ? redoStack : undoStack, to = redo ? undoStack : redoStack;
   const snapshot = from.pop(); if (!snapshot) return;
-  to.push(structuredClone(map)); map = snapshot; config.theme = map.config.theme; syncThemeUI(); edited = true; render(); saveLocal();
+  to.push(structuredClone(map)); map = snapshot; config.theme = map.config.theme; syncThemeUI(); syncLightingControls(map); edited = true; render(); saveLocal();
 }
 function paintCell(x: number, y: number): void {
   const w = map.config.width, h = map.config.height, size = view.brushSize, shift = Math.floor(size / 2);
@@ -376,8 +390,22 @@ $('#compact-building').addEventListener('click', () => {
   ($('#map-width') as Field).value = '24'; ($('#map-height') as Field).value = '18'; ($('#map-size') as Field).value = '24x18'; updateDimensions();
 });
 $('#ruin-decay').addEventListener('input', () => { $('#decay-value').innerHTML = `${($('#ruin-decay') as Slider).value}<span>%</span>`; });
-$('#rooms-auto').addEventListener('change', updateDimensions);
-$('#room-count').addEventListener('input', updateDimensions);
+$('#rooms-auto').addEventListener('change', () => {
+  const field = $('#room-count') as Field;
+  if (($('#rooms-auto') as Toggle).selected) {
+    if (field.value) manualRoomCount = field.value;
+    field.value = '';
+  } else {
+    const maximum = maxRoomCount(Number(($('#map-width') as Field).value), Number(($('#map-height') as Field).value));
+    field.value = manualRoomCount || String(Math.min(6, maximum));
+  }
+  updateDimensions();
+});
+$('#room-count').addEventListener('input', () => {
+  ($('#rooms-auto') as Toggle).selected = false;
+  manualRoomCount = ($('#room-count') as Field).value;
+  updateDimensions();
+});
 $('#forest-paths').addEventListener('change', updatePathControls);
 document.querySelectorAll<HTMLElement>('[data-path-layout]').forEach(button => button.addEventListener('click', () => {
   config.forestPathLayout = button.dataset.pathLayout as ForestPathLayout; updatePathControls();
@@ -393,16 +421,30 @@ $('#generate').addEventListener('click', requestGenerate);
 $('#random-seed').addEventListener('click', () => { ($('#seed') as Field).value = freshSeed(); toast('Nueva semilla lista. Pulsa Generar mapa para explorarla.'); });
 document.querySelectorAll<HTMLElement>('[data-biome]').forEach(el => el.addEventListener('click', () => { config = readConfig(); config.biome = el.dataset.biome as Biome; syncControls(); }));
 for (const id of ['density', 'complexity']) $(`#${id}`).addEventListener('input', () => { $(`#${id}-value`).innerHTML = `${Number(($(`#${id}`) as Slider).value)}<span>%</span>`; });
-$('#tab-world').addEventListener('click', () => selectTab('world'));
-$('#tab-assets').addEventListener('click', () => selectTab('assets'));
-$('.panel-tabs').addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const which = $('#tab-world').getAttribute('aria-selected') === 'true' ? 'assets' : 'world'; selectTab(which); $(`#tab-${which}`).focus(); e.preventDefault(); } });
+for (const tab of panelTabs) $(`#tab-${tab}`).addEventListener('click', () => selectTab(tab));
+$('.panel-tabs').addEventListener('keydown', e => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const current = panelTabs.findIndex(tab => $(`#tab-${tab}`) === e.target); if (current < 0) return;
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? panelTabs.length - 1 : (current + (e.key === 'ArrowLeft' ? -1 : 1) + panelTabs.length) % panelTabs.length;
+  selectTab(panelTabs[next]); $(`#tab-${panelTabs[next]}`).focus(); e.preventDefault();
+});
 for (const tool of ['pan', 'brush', 'erase', 'place'] as const) $(`#tool-${tool}`).addEventListener('click', () => setTool(tool));
 $('#undo').addEventListener('click', () => restoreHistory()); $('#redo').addEventListener('click', () => restoreHistory(true));
 $('#zoom-in').addEventListener('click', () => view.zoomBy(1.25)); $('#zoom-out').addEventListener('click', () => view.zoomBy(.8));
 $('#fit-map').addEventListener('click', () => view.fit()); $('#zoom-level').addEventListener('click', () => view.fit());
 function toggleGrid(): void { options.grid = !options.grid; $('#grid-toggle').classList.toggle('active', options.grid); $('#grid-toggle').setAttribute('aria-pressed', String(options.grid)); render(); }
 $('#grid-toggle').addEventListener('click', toggleGrid);
-$('#light-toggle').addEventListener('click', () => { options.atmosphere = !options.atmosphere; $('#light-toggle').classList.toggle('active', options.atmosphere); $('#light-toggle').setAttribute('aria-pressed', String(options.atmosphere)); render(); });
+function changeLighting(settings: LightingSettings, commit: boolean): void {
+  if (busy || !map) return;
+  if (!lightingSnapshot) lightingSnapshot = structuredClone(map);
+  map.lighting = { ...settings }; edited = true; syncLightingControls(map);
+  if (commit) {
+    if (JSON.stringify(lightingSnapshot.lighting ?? DEFAULT_LIGHTING) !== JSON.stringify(settings)) pushUndo(lightingSnapshot);
+    lightingSnapshot = undefined; render(); saveLocal();
+  } else scheduleRender();
+}
+bindLightingControls(() => ({ ...DEFAULT_LIGHTING, ...map?.lighting }), changeLighting);
+$('#light-toggle').addEventListener('click', () => changeLighting({ ...DEFAULT_LIGHTING, ...map?.lighting, enabled: !(map?.lighting?.enabled ?? true) }, true));
 document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(el => el.addEventListener('click', () => { terrain = el.dataset.terrain as Terrain; document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(t => { t.classList.toggle('active', t === el); t.setAttribute('aria-pressed', String(t === el)); }); }));
 document.querySelectorAll<HTMLElement>('[data-brush]').forEach(el => el.addEventListener('click', () => { view.brushSize = Number(el.dataset.brush); document.querySelectorAll<HTMLElement>('[data-brush]').forEach(t => t.classList.toggle('active', t === el)); }));
 document.querySelectorAll<HTMLElement>('[data-asset]').forEach(el => el.addEventListener('click', () => { view.selectedAsset = el.dataset.asset as AssetId; view.assetScale = ASSET_SIZES[view.selectedAsset] * Number(($('#object-scale') as Slider).value) / 100; document.querySelectorAll<HTMLElement>('[data-asset]').forEach(t => { t.classList.toggle('selected', t === el); t.setAttribute('aria-pressed', String(t === el)); }); setTool('place'); if (window.innerWidth < 760) { $('.sidebar').classList.remove('mobile-open'); toast('Objeto seleccionado. Toca el mapa para colocarlo.'); } }));
@@ -440,6 +482,7 @@ let exportController: AbortController | undefined;
 ($('#export-dialog') as HTMLDialogElement).addEventListener('close', () => exportController?.abort());
 $('#open-export').addEventListener('click', async () => {
   if (!map || busy) return;
+  if (renderTimer) render();
   ($('#export-grid') as Toggle).selected = options.grid;
   $('#export-error').hidden = true;
   if (map.config.width * map.config.height * Number(($('#export-resolution') as Field).value) ** 2 > 40_000_000) ($('#export-resolution') as Field).value = '50';

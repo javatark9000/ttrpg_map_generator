@@ -2,6 +2,7 @@ import { ASSETS, OUTDOOR_BIOMES } from './types';
 import type { BattleMap, MapObject, RenderOptions, Terrain, Theme } from './types';
 import { assetUrl, THEMES, THEME_IDS } from './themes';
 import { fbm, hashString, Random } from './random';
+import { drawSunlight, lightingFor } from './lighting';
 
 const images = new Map<string, HTMLImageElement>();
 export async function loadAssets(): Promise<void> {
@@ -93,6 +94,7 @@ export function orderedObjects(map: BattleMap): MapObject[] {
 export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], drawObjects = true): HTMLCanvasElement {
   const { width: w, height: h, biome, theme } = map.config;
   const palette = THEMES[theme];
+  const lighting = lightingFor(map, options);
   const ink = (vanilla: string, dark: string, anime: string) => theme === 'dark' ? dark : theme === 'anime' ? anime : vanilla;
   const canvas = document.createElement('canvas');
   canvas.width = w * tile; canvas.height = h * tile;
@@ -206,35 +208,32 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
     }
   }
 
+  drawSunlight(ctx, map, tile, options);
   splitLayer();
   const objects = drawObjects ? orderedObjects(map) : [];
   for (const obj of objects) {
     const image = assetImage(obj.asset, theme); if (!image) continue;
     const size = obj.scale * tile, x = obj.x * tile, y = obj.y * tile;
-    if (options.atmosphere && ['campfire', 'crystal', 'torch', 'altar'].includes(obj.asset)) {
+    if (lighting.enabled && lighting.halos > 0 && ['campfire', 'crystal', 'torch', 'altar'].includes(obj.asset)) {
+      ctx.save(); ctx.globalAlpha = lighting.halos / 100;
       const warm = obj.asset === 'campfire' || obj.asset === 'torch';
       const radius = tile * (warm ? 3.5 : 2.0);
       const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
       glow.addColorStop(0, warm ? ink('#f5be6688', '#d79b5c88', '#ffe2a788') : ink('#8cdfbd45', '#b36a9955', '#d5b8ff88')); glow.addColorStop(.4, warm ? '#f5be6625' : ink('#8cdfbd18', '#ac58731a', '#b9b3ff25')); glow.addColorStop(1, '#00000000');
-      ctx.fillStyle = glow; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      ctx.fillStyle = glow; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2); ctx.restore();
     }
     ctx.save(); ctx.translate(x, y); ctx.rotate(obj.rotation);
     ctx.shadowColor = ink(obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88', '#060a10bb', '#35466566');
-    ctx.shadowBlur = tile * (obj.asset.startsWith('tree') ? .22 : .09); ctx.shadowOffsetX = tile * .12; ctx.shadowOffsetY = tile * .2;
+    ctx.shadowBlur = tile * (obj.asset.startsWith('tree') ? .22 : .09); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.drawImage(image, -size / 2, -size / 2, size, size); ctx.restore();
   }
 
   splitLayer();
-  if (options.atmosphere) {
+  if (lighting.enabled && lighting.vignette > 0) {
+    ctx.save(); ctx.globalAlpha = lighting.vignette / 100;
     const vignette = ctx.createRadialGradient(width * .45, height * .42, width * .13, width * .5, height * .5, Math.max(width, height) * .65);
-    vignette.addColorStop(0, '#15271b00'); vignette.addColorStop(.55, ink('#14291d08', '#14121e18', '#b1b7f008')); vignette.addColorStop(1, ink('#091c2055', '#08081199', '#38447433')); 
-    ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
-    // Broad sunbeams are deliberately subtle: the grid remains legible.
-    if (forest && biome !== 'mountain') {
-      ctx.save(); ctx.globalCompositeOperation = 'soft-light';
-      const beam = ctx.createLinearGradient(0, 0, width, height); beam.addColorStop(0, ink('#ece0ac30', '#a7b6cc20', '#fff3d570')); beam.addColorStop(1, '#ece0ac00'); ctx.fillStyle = beam;
-      ctx.beginPath(); ctx.moveTo(width * .1, 0); ctx.lineTo(width * .24, 0); ctx.lineTo(width * .9, height); ctx.lineTo(width * .54, height); ctx.closePath(); ctx.fill(); ctx.restore();
-    }
+    vignette.addColorStop(0, '#15271b00'); vignette.addColorStop(.55, ink('#14291d08', '#14121e18', '#b1b7f008')); vignette.addColorStop(1, ink('#091c20aa', '#080811dd', '#38447488'));
+    ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height); ctx.restore();
   }
   if (options.grid) {
     ctx.strokeStyle = theme === 'dark' ? `rgba(168,166,156,${options.gridOpacity * .65})` : theme === 'anime' ? `rgba(61,67,108,${options.gridOpacity})` : `rgba(20,32,26,${options.gridOpacity})`; ctx.lineWidth = Math.max(.65, tile / 72);

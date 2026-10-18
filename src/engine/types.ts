@@ -1,3 +1,5 @@
+import type { LightingSettings } from './lighting-settings';
+
 export type Biome = 'forest' | 'dungeon' | 'cave' | 'ruins' | 'village' | 'mountain' | 'building';
 export type BuildingType = 'house' | 'tavern' | 'inn' | 'smithy' | 'temple' | 'library' | 'warehouse' | 'barracks';
 export type VillageLayout = 'square' | 'crossroads' | 'linear';
@@ -44,6 +46,8 @@ export interface BattleMap {
   spawn: { x: number; y: number };
   /** Original generated rooms; manual terrain edits do not redefine this metadata. */
   rooms?: DungeonRoom[];
+  /** Visual settings travel with the project, independently of procedural geometry. */
+  lighting?: LightingSettings;
 }
 export interface RenderOptions { grid: boolean; gridOpacity: number; atmosphere: boolean; bioluminescence?: boolean }
 export const BIOMES: Record<Biome, { name: string; subtitle: string; prefix: string; icon: string; art: AssetId }> = {

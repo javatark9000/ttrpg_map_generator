@@ -1,4 +1,5 @@
 import { ASSETS, BIOME_IDS } from './types';
+import { parseLighting } from './lighting-settings';
 import { THEME_IDS } from './themes';
 import { dimensionsError } from './dimensions';
 import { SCENARIO_DEFAULTS, scenarioOptionsError } from './scenario-options';
@@ -27,6 +28,7 @@ export function parseMap(text: string): BattleMap {
   if (!Array.isArray(m.terrain) || m.terrain.length !== c.width * c.height || m.terrain.some(t => !terrainTypes.has(t))) throw new Error('Los datos de terreno no son válidos.');
   if (!Array.isArray(m.objects) || m.objects.length > 20_000 || m.objects.some(o => !o || !assetTypes.has(o.asset) || typeof o.id !== 'string' || o.id.length > 100 || !finite(o.x) || !finite(o.y) || o.x < 0 || o.y < 0 || o.x > c.width || o.y > c.height || !finite(o.scale) || o.scale <= 0 || o.scale > 20 || !finite(o.rotation))) throw new Error('Los objetos del mapa no son válidos.');
   if (!m.spawn || !Number.isInteger(m.spawn.x) || !Number.isInteger(m.spawn.y) || m.spawn.x < 0 || m.spawn.y < 0 || m.spawn.x >= c.width || m.spawn.y >= c.height) throw new Error('El punto de entrada no es válido.');
+  if (m.lighting !== undefined) m.lighting = parseLighting(m.lighting);
   return m;
 }
 export const STORAGE_KEY = 'rc-map-v2';
