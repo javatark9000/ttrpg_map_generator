@@ -56,6 +56,8 @@ Las cantidades manuales no se reducen silenciosamente. Los errores de capacidad 
 
 Las temáticas utilizan SVG y paletas propios, no un filtro CSS sobre la misma imagen. El arte no utiliza personajes o emblemas de franquicias.
 
+La interfaz utiliza el diseño **Brasa**: vino/cobre, Inter y Cinzel locales, controles compactos y panel lateral adaptable. Su apariencia no cambia al elegir Vanilla/Dark/Anime ni aplica filtros a los mapas o a las imágenes exportadas.
+
 Hay dos selectores independientes:
 
 - **Temática del mundo:** modifica el terreno, la ambientación y los objetos que heredan el tema global. El cambio no regenera geometría ni elimina ediciones y puede deshacerse.
@@ -67,9 +69,11 @@ La previsualización, el render estático y la animación resuelven `object.them
 
 ### Biblioteca y escala
 
-- Búsqueda por nombre y filtros **Naturaleza**, **Aventura** y **Construcción**.
+- Navegación por **nueve familias**, una visible cada vez: Vegetación; Rocas y restos; Arquitectura y accesos; Mobiliario y decoración; Almacenaje y comercio; Campamento y equipo; Armas y herrería; Cocina y taberna; Culto y magia.
+- La primera apertura elige una familia relacionada con el mapa generado; después conserva la elección manual. Un objeto compartido aparece en sus distintas familias, sin duplicar su identidad.
+- La búsqueda por nombre abarca todo el catálogo, ignora mayúsculas y acentos y muestra las familias de cada resultado. Limpiarla devuelve a la familia seleccionada.
 - Escala manual **25–400 %**; 100 % corresponde al tamaño natural del asset, no a una casilla para todos los objetos.
-- La escala y el giro se aplican al objeto que se va a colocar. No hay un inspector para transformar individualmente los objetos ya colocados; pueden borrarse y colocarse de nuevo.
+- El botón **Girar 45°** y el atajo **R** giran la próxima colocación. La escala y el giro se aplican al objeto que se va a colocar. No hay un inspector para transformar individualmente los objetos ya colocados; pueden borrarse y colocarse de nuevo.
 - Se conservan los assets anteriores junto a variantes especializadas: escaleras ascendentes/descendentes, estatuas completas/quebradas, accesos de cueva y alcantarilla, viviendas por estatus y tejados singulares.
 - Mercados, corrales, murallas y estantes tienen módulos combinables. Los estantes de almacén llenos y vacíos se construyen con piezas de una casilla, sin estirar una única ilustración.
 - Los interiores incorporan ventanas, barras, bebidas, recepción, cocina de leña, chimenea, equipo, armas sueltas y mobiliario de herrería y templos.
@@ -401,6 +405,7 @@ El guardado local utiliza `rc-map-v2`. También se puede recuperar la clave ante
 src/
   main.ts                       Interfaz, controles, edición, historial y exportación
   viewport.ts                   Cámara, navegación y previsualización
+  asset-families.ts              Familias del catálogo y correspondencia inicial por escenario
   lighting-panel.ts             Controles de iluminación
   *.css                         Estilos, temáticas y adaptación de interfaz
   engine/
@@ -437,6 +442,8 @@ src/
 public/assets/
   vanilla/ dark/ anime/          SVG de objetos y texturas por temática
   *.svg                         Originales y compatibilidad
+public/fonts/
+  Inter.ttf / Cinzel.ttf         Fuentes locales con sus licencias SIL OFL
 scripts/
   create-assets.mjs              Colección original
   create-expansion-assets.mjs    Primera ampliación de arquitectura y paisaje
@@ -447,7 +454,7 @@ scripts/
 
 La generación procedural y la codificación GIF se ejecutan en workers separados. El dibujo Canvas 2D y la exportación estática permanecen en el hilo principal. El ruido visual se muestrea en coordenadas del mundo para conservar el paisaje al cambiar resolución.
 
-Los planes y decisiones de la ampliación están en `docs/change-plans/`. Algunos documentos describen propuestas o estados previos: el código y este README describen la interfaz actual. `legacy_documentation` queda fuera del alcance de esta revisión documental.
+La guía del diseño Brasa está en `docs/diseno/GUIA_DISENO_BRASA_ASTRA.md`, con el resultado de implementación en `docs/diseno/ESTADO_IMPLEMENTACION_BRASA.md`. Los planes y decisiones de la ampliación están en `docs/change-plans/`. Algunos documentos describen propuestas o estados previos: el código y este README describen la interfaz actual. `legacy_documentation` queda fuera del alcance de esta revisión documental.
 
 ## Límites de alcance
 
@@ -460,4 +467,4 @@ Los planes y decisiones de la ampliación están en `docs/change-plans/`. Alguno
 - Las exportaciones grandes y las búsquedas de capacidad complejas pueden tardar. Un build correcto no sustituye una revisión manual del resultado.
 - Biblioteca conserva su diseño anterior; su ampliación de salas y opciones queda aplazada.
 
-`@material/web` es Material Web, no Angular Material; considerar su mantenimiento al actualizar dependencias. Las fuentes Cormorant Garamond y DM Sans conservan sus licencias originales y se sirven mediante Fontsource.
+`@material/web` es Material Web, no Angular Material; considerar su mantenimiento al actualizar dependencias. Inter y Cinzel se sirven desde `public/fonts/`, con sus licencias SIL Open Font License 1.1. No se cargan fuentes desde CDNs ni mediante Fontsource.

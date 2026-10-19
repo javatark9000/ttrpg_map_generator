@@ -16,7 +16,7 @@ const toggle = (key: keyof typeof toggles) => `<label class="toggle-row"><span>$
 const slider = (key: LightingNumber) => `<div class="lighting-slider"><div class="slider-label"><label id="lighting-${key}-label">${labels[key]}</label><output id="lighting-${key}-value"></output></div><md-slider id="lighting-${key}" aria-labelledby="lighting-${key}-label" min="0" max="${LIGHTING_RANGES[key]}" value="${DEFAULT_LIGHTING[key]}" step="1"></md-slider></div>`;
 export function lightingPanel(): string {
   return `<section id="lighting-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-lighting" hidden>
-    <div class="section-heading"><h2>Dale luz a tu mundo</h2></div>
+    <div class="section-heading"><h2>Iluminación</h2></div>
     <p class="panel-description">Cambios inmediatos, sin regenerar el mapa. Se guardan en el proyecto y se conservan en PNG, JPEG y GIF.</p>
     ${toggle('enabled')}<p id="lighting-context" class="scenario-hint"></p>
     <section class="lighting-section" aria-label="Luz solar">${toggle('sun')}${slider('intensity')}${slider('direction')}

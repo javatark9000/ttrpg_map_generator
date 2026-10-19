@@ -10,8 +10,6 @@
     "assets": "node scripts/create-assets.mjs && node scripts/create-expansion-assets.mjs && node scripts/create-theme-assets.mjs"
   },
   "dependencies": {
-    "@fontsource/cormorant-garamond": "^5.2.0",
-    "@fontsource/dm-sans": "^5.2.0",
     "@material/web": "^2.4.1",
     "gifenc": "^1.0.3"
   },

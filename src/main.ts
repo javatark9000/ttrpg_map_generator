@@ -1,10 +1,3 @@
-import '@fontsource/dm-sans/latin-400.css';
-import '@fontsource/dm-sans/latin-500.css';
-import '@fontsource/dm-sans/latin-600.css';
-import '@fontsource/cormorant-garamond/latin-400.css';
-import '@fontsource/cormorant-garamond/latin-500.css';
-import '@fontsource/cormorant-garamond/latin-400-italic.css';
-import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
 import '@material/web/button/text-button.js';
 import '@material/web/iconbutton/icon-button.js';
@@ -29,6 +22,8 @@ import { activeLayerData } from './engine/map-layers';
 import { Viewport } from './viewport';
 import type { Tool } from './viewport';
 import { icon } from './icons';
+import { ASSET_FAMILIES, ASSET_FAMILY_MEMBERSHIP, DEFAULT_ASSET_FAMILY } from './asset-families';
+import type { AssetFamilyId } from './asset-families';
 import { DEFAULT_LIGHTING } from './engine/lighting-settings';
 import type { LightingSettings } from './engine/lighting-settings';
 import { lightingPanel, bindLightingControls, syncLightingControls } from './lighting-panel';
@@ -42,6 +37,7 @@ type Field = HTMLElement & { value: string; disabled: boolean };
 type Toggle = HTMLElement & { selected: boolean; disabled: boolean };
 type Slider = HTMLElement & { value: number };
 type Checkbox = HTMLElement & { checked: boolean; disabled: boolean };
+type NumberField = Field & { validity: ValidityState; validationMessage: string; error: boolean; errorText: string };
 const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const option = (value: string, label: string, selected = false) => `<md-select-option value="${value}" ${selected ? 'selected' : ''}><div slot="headline">${label}</div></md-select-option>`;
 const iconButton = (id: string, name: string, title: string, extra = '') => `<md-icon-button id="${id}" title="${title}" aria-label="${title}" ${extra}>${icon(name)}</md-icon-button>`;
@@ -51,24 +47,33 @@ const parseCount = (id: string): number => {
 };
 
 $('#app').innerHTML = `
+<a class="skip-link" href="#map-canvas">Saltar al mapa</a>
 <header class="app-header">
-  <a class="brand" href="./" aria-label="RC map generator, inicio"><span class="brand-mark">${icon('sparkle')}</span><span class="brand-name">RC<span class="brand-caption">map generator</span></span></a>
-  <div class="header-divider"></div><div class="header-description">Un mundo por imaginar.</div>
+  ${iconButton('toggle-sidebar', 'menu', 'Abrir panel del editor', 'aria-controls="editor-sidebar" aria-expanded="false"')}
+  <div class="brand" aria-label="RC map generator"><span class="brand-name">RC</span><span class="brand-caption">map generator</span></div>
   <div class="header-actions">
-    <span class="local-badge"><span></span> Hecho en tu navegador</span>
     ${iconButton('open-project', 'folder', 'Abrir proyecto JSON')}
     ${iconButton('save-project', 'save', 'Guardar proyecto JSON')}
-    <md-filled-button id="open-export">${icon('download', 'button-icon')}<span>Exportar mapa</span></md-filled-button>
+    <button id="open-export" class="primary-button">${icon('download', 'button-icon')}<span>Exportar</span></button>
   </div>
 </header>
 <div class="app-layout">
-  <aside class="sidebar" aria-label="Configuración del mapa">
-    <div class="sidebar-top"><span class="eyebrow">TU PRÓXIMA AVENTURA</span>${iconButton('close-sidebar', 'close', 'Cerrar panel')}</div>
-    <div class="theme-picker" role="group" aria-label="Temática del mundo">${THEME_IDS.map(theme => `<button class="theme-card ${theme === 'vanilla' ? 'selected' : ''}" data-theme="${theme}" aria-pressed="${theme === 'vanilla'}" title="${THEMES[theme].description}"><img src="${assetUrl('tree-oak', theme)}" alt=""/><span>${THEMES[theme].name}</span></button>`).join('')}</div><p id="theme-description" class="theme-description">${THEMES.vanilla.description}</p>
+  <aside id="editor-sidebar" class="sidebar" aria-label="Editor de mapas">
+    <div class="sidebar-top"><h2 class="sidebar-title">Editor de mapas</h2>${iconButton('close-sidebar', 'close', 'Cerrar panel')}</div>
     <div class="panel-tabs" role="tablist" aria-label="Panel del editor"><button id="tab-world" class="panel-tab active" role="tab" aria-selected="true" aria-controls="world-panel">${icon('map')} Crear mundo</button><button id="tab-assets" class="panel-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="assets-panel">${icon('layers')} Objetos <span>${ASSETS.length}</span></button><button id="tab-lighting" class="panel-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="lighting-panel">${icon('sun')} Iluminación</button></div>
     <section id="world-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-world">
-      <div class="section-heading"><h2>Elige un escenario</h2><span class="step-number">01</span></div>
-      <div class="biome-list">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}" title="${b.subtitle}"><span class="biome-art ${key}"><img src="${assetUrl(b.art, 'vanilla')}" alt=""/></span><span class="biome-info"><strong>${b.name}</strong><small>${b.subtitle}</small></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
+      <div class="section-heading"><h2>Escenario</h2></div>
+      <div class="biome-list" role="group" aria-label="Escenario para generar">${Object.entries(BIOMES).map(([key, b]) => `<button class="biome-card ${key === 'forest' ? 'selected' : ''}" data-biome="${key}" aria-pressed="${key === 'forest'}" title="${b.subtitle}"><span class="biome-art ${key}"><img src="${assetUrl(b.art, 'vanilla')}" alt=""/></span><span class="biome-info"><strong>${b.name}</strong></span><span class="biome-check">${icon('check')}</span></button>`).join('')}</div>
+      <p class="scenario-hint">El escenario y sus opciones se aplican al pulsar Generar mapa.</p>
+      <div class="section-heading separated"><h2>Temática del mundo</h2></div>
+      <div class="theme-picker" role="group" aria-label="Temática del mundo">${THEME_IDS.map(theme => `<button class="theme-card ${theme === 'vanilla' ? 'selected' : ''}" data-theme="${theme}" aria-pressed="${theme === 'vanilla'}" title="${THEMES[theme].description}"><img src="${assetUrl('tree-oak', theme)}" alt=""/><span>${THEMES[theme].name}</span></button>`).join('')}</div>
+      <p id="theme-description" class="theme-description">${THEMES.vanilla.description}</p>
+      <p class="scenario-hint">El tema cambia el mapa actual sin regenerarlo. Los objetos manuales conservan su estilo.</p>
+      <div class="section-heading separated"><h2>Dimensiones</h2></div>
+      <md-outlined-select id="map-size" label="Formato del mapa">${SIZE_PRESETS.map(p => option(p.value, p.label, p.value === '40x30')).join('')}${option('custom', 'Personalizado · Ancho y alto libres')}</md-outlined-select>
+      <div class="dimension-fields"><md-outlined-text-field id="map-width" type="number" label="Ancho" value="40" min="${MIN_SIDE}" max="${MAX_SIDE}" step="1" inputmode="numeric" aria-describedby="size-error"></md-outlined-text-field>${iconButton('swap-dimensions', 'redo', 'Intercambiar ancho y alto')}<md-outlined-text-field id="map-height" type="number" label="Alto" value="30" min="${MIN_SIDE}" max="${MAX_SIDE}" step="1" inputmode="numeric" aria-describedby="size-error"></md-outlined-text-field></div>
+      <div class="dimension-summary"><span id="aspect-preview" aria-hidden="true"></span><span id="aspect-ratio">4:3</span><span id="cell-total">1.200 casillas</span></div><p id="size-error" class="size-error" role="alert" hidden></p>
+      <p class="field-hint">${icon('grid')} Cada casilla representa 5 pies / 1,5 m</p>
       <section id="house-status-options" class="scenario-options" aria-label="Estatus general de las viviendas" hidden>
         <md-outlined-select id="house-status" label="Estatus general de las casas">${option('poor','Humildes')}${option('common','Comunes',true)}${option('wealthy','Acomodadas')}</md-outlined-select>
         <p class="scenario-hint">Determina el aspecto general de las viviendas. Pueblo usa además su distribución porcentual propia.</p>
@@ -82,7 +87,7 @@ $('#app').innerHTML = `
           <md-outlined-text-field id="dungeon-rooms-medium" label="Medianos · 9–12" type="number" inputmode="numeric" min="0" max="40" step="1" value="2"></md-outlined-text-field>
           <md-outlined-text-field id="dungeon-rooms-large" label="Grandes · 13+" type="number" inputmode="numeric" min="0" max="40" step="1" value="1"></md-outlined-text-field>
         </div>
-        <p class="scenario-hint">El formulario comprueba límites básicos. La capacidad final de la distribución BSP se comprueba al generar; las cuotas nunca se reducen silenciosamente.</p>
+        <p class="scenario-hint">Tamaño según el lado interior más corto: 4–8, 9–12 o 13+ casillas. El formulario comprueba límites básicos; la distribución exacta BSP se comprueba al generar, sin reducir cuotas.</p>
       </section>
       <section id="cave-options" class="scenario-options" aria-label="Simas de la caverna" hidden>
         <div class="section-heading"><h2>Simas y pasos naturales</h2>${icon('mountain')}</div>
@@ -111,7 +116,7 @@ $('#app').innerHTML = `
         <p class="scenario-hint">Las cuevas son accesos independientes. Sin camino se conserva terreno natural conectado.</p>
       </section>
       <section id="city-options" class="scenario-options" aria-label="Configuración de la ciudad" hidden>
-        <div class="slider-label"><label id="city-density-label">Densidad urbana</label><output id="city-density-value">80<span>%</span></output></div><md-slider id="city-density" aria-labelledby="city-density-label" min="0" max="100" value="80" step="1"></md-slider>
+        <div class="slider-label"><label id="city-density-label">Densidad de edificios</label><output id="city-density-value">80<span>%</span></output></div><md-slider id="city-density" aria-labelledby="city-density-label" min="0" max="100" value="80" step="1"></md-slider>
         <div class="slider-label second"><label id="city-balance-label">Comercio en los distritos</label><output id="city-balance-value">35<span>%</span></output></div><md-slider id="city-district-balance" aria-labelledby="city-balance-label" min="0" max="100" value="35" step="1"></md-slider>
         <div class="scenario-control-grid"><md-outlined-select id="city-alleys" label="Callejones">${option('none','Ninguno')}${option('few','Pocos',true)}${option('many','Muchos')}</md-outlined-select><md-outlined-select id="city-street-width" label="Ancho de calles">${option('narrow','Estrechas')}${option('standard','Estándar',true)}${option('wide','Anchas')}</md-outlined-select></div>
         <label class="toggle-row"><span>Accesos de alcantarilla</span><md-switch id="city-sewers" aria-label="Accesos visibles de alcantarilla" selected></md-switch></label><label class="toggle-row"><span>Murallas urbanas</span><md-switch id="city-walls" aria-label="Murallas urbanas"></md-switch></label>
@@ -129,7 +134,7 @@ $('#app').innerHTML = `
       <section id="inn-options" class="scenario-options" aria-label="Configuración de la posada" hidden>
         <md-outlined-text-field id="inn-room-count" label="Habitaciones para huéspedes" type="number" inputmode="numeric" min="1" max="40" step="1" value="4"></md-outlined-text-field>
         <label class="toggle-row"><span>Escaleras a planta superior</span><md-switch id="inn-upper-stairs" aria-label="Escaleras a planta superior"></md-switch></label>
-        <p class="scenario-hint">El conteo no incluye recepción ni servicios. Las habitaciones pueden ser individuales, dobles o familiares.</p>
+        <p class="scenario-hint">Total entre todas las plantas; no incluye recepción ni servicios. Las habitaciones pueden ser individuales, dobles o familiares.</p>
       </section>
       <section id="smithy-options" class="scenario-options" aria-label="Configuración de la herrería" hidden>
         <md-outlined-select id="smithy-forge-layout" label="Posición del horno">${option('wall','Contra la pared',true)}${option('central','Central')}</md-outlined-select>
@@ -160,14 +165,8 @@ $('#app').innerHTML = `
         <label class="scenario-check"><md-checkbox id="forest-dead-ends" aria-label="Callejones sin salida"></md-checkbox><span>Callejones sin salida<small>Ramales que terminan dentro del bosque</small></span></label>
         <p class="scenario-hint subtle">Miniaturas orientativas. La semilla y la complejidad dan forma a las curvas.</p>
       </section>
-      <p id="scenario-error" class="size-error scenario-error" role="alert" hidden></p>
-      <div class="section-heading separated"><h2>Traza los límites</h2><span class="step-number">02</span></div>
-      <md-outlined-select id="map-size" label="Formato del mapa">${SIZE_PRESETS.map(p => option(p.value, p.label, p.value === '40x30')).join('')}${option('custom', 'Personalizado · Ancho y alto libres')}</md-outlined-select>
-      <div class="dimension-fields"><md-outlined-text-field id="map-width" type="number" label="Ancho" value="40" min="${MIN_SIDE}" max="${MAX_SIDE}" step="1" inputmode="numeric"></md-outlined-text-field>${iconButton('swap-dimensions', 'redo', 'Intercambiar ancho y alto')}<md-outlined-text-field id="map-height" type="number" label="Alto" value="30" min="${MIN_SIDE}" max="${MAX_SIDE}" step="1" inputmode="numeric"></md-outlined-text-field></div>
-      <div class="dimension-summary"><span id="aspect-preview" aria-hidden="true"></span><span id="aspect-ratio">4:3</span><span id="cell-total">1.200 casillas</span></div><p id="size-error" class="size-error" role="alert" hidden></p>
-      <div class="field-hint">${icon('grid')} Cada casilla representa 5 pies / 1,5 m</div>
+      <div class="section-heading separated"><h2>Distribución y semilla</h2></div>
       <div class="seed-row"><md-outlined-text-field id="seed" label="Semilla del mundo" value="RC-7429" maxlength="120" spellcheck="false"></md-outlined-text-field>${iconButton('random-seed', 'dice', 'Elegir una nueva semilla')}</div>
-      <div class="section-heading separated"><h2>Dale personalidad</h2><span class="step-number">03</span></div>
       <div id="general-density-control"><div class="slider-label"><label id="density-label">Vegetación y objetos</label><output id="density-value">62<span>%</span></output></div>
       <md-slider id="density" aria-labelledby="density-label" min="0" max="100" value="62" step="1"></md-slider>
       <div class="range-labels"><span>Despejado</span><span>Frondoso</span></div></div>
@@ -176,40 +175,80 @@ $('#app').innerHTML = `
       <div class="range-labels"><span>Sereno</span><span>Intrincado</span></div></div>
       <div class="toggle-list"><label class="toggle-row"><span>${icon('water')} Ríos y lagunas</span><md-switch id="water" aria-label="Ríos y lagunas" selected></md-switch></label><label class="toggle-row"><span>${icon('flag')} Puntos de interés</span><md-switch id="landmarks" aria-label="Puntos de interés" selected></md-switch></label></div>
       <label class="toggle-row" title="Efecto opcional en la vista animada y el GIF; no cambia PNG/JPEG ni el proyecto."><span>${icon('sparkle')} Setas bioluminiscentes</span><md-switch id="bioluminescence" aria-label="Setas bioluminiscentes"></md-switch></label><p class="scenario-hint">Opcional · solo en la vista animada y el GIF.</p>
-      <div class="world-note">${icon('sparkle')} Una semilla, un mundo único.<br><span>La aventura la escribes tú.</span></div>
     </section>
     <section id="assets-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-assets" hidden>
-      <div class="section-heading"><h2>Pequeños grandes detalles</h2><span id="asset-theme-label" class="theme-badge">Vanilla</span></div><p class="panel-description">Elige un objeto y colócalo sobre el mapa. Pulsa <kbd>R</kbd> para girarlo.</p>
-      <md-outlined-select id="object-theme" label="Temática del objeto">${THEME_IDS.map(theme => option(theme, THEMES[theme].name, theme === 'vanilla')).join('')}</md-outlined-select>
-      <p class="scenario-hint">Solo los objetos colocados manualmente usan esta temática. Los generados heredan la del mapa.</p>
-      <md-outlined-text-field id="asset-search" label="Buscar objetos">${icon('search')}</md-outlined-text-field>
-      <div class="asset-filters"><button class="active" data-category="all">Todos</button><button data-category="nature">Naturaleza</button><button data-category="adventure">Aventura</button><button data-category="architecture">Construcción</button></div>
-      <div class="asset-grid">${ASSETS.map(a => `<button class="asset-card" data-asset="${a.id}" data-category="${a.category}" title="Colocar ${a.name}" aria-pressed="false"><img src="${assetUrl(a.id, 'vanilla')}" alt="" loading="lazy"/><span>${a.name}</span></button>`).join('')}</div><p id="no-assets" hidden>No hay objetos con ese nombre.</p>
-      <div class="asset-size-controls"><label for="object-scale">Escala del objeto</label><md-slider id="object-scale" aria-label="Escala del objeto" min="25" max="400" value="100" step="5"></md-slider><div class="range-labels"><span>25 %</span><span id="object-scale-value">100 %</span><span>400 %</span></div></div>
+      <div class="asset-browser-controls">
+        <div class="section-heading"><h2>Objetos</h2><span id="asset-theme-label" class="theme-badge">Vanilla</span></div>
+        <md-outlined-select id="object-theme" label="Estilo visual del objeto">${THEME_IDS.map(theme => option(theme, THEMES[theme].name, theme === 'vanilla')).join('')}</md-outlined-select>
+        <p class="scenario-hint">Las próximas colocaciones conservarán este estilo al cambiar el tema del mundo.</p>
+        <md-outlined-text-field id="asset-search" label="Buscar en todas las familias">${icon('search')}</md-outlined-text-field>
+        <button id="clear-asset-search" class="text-button" hidden>Limpiar búsqueda</button>
+        <md-outlined-select id="asset-family" label="Familia">${ASSET_FAMILIES.map(family => option(family.id, family.name, family.id === DEFAULT_ASSET_FAMILY[DEFAULT_CONFIG.biome])).join('')}</md-outlined-select>
+        <p id="asset-results-label" class="asset-results-label" role="status" aria-live="polite"></p>
+      </div>
+      <div class="asset-results">
+        <div class="asset-grid">${ASSETS.map(a => `<button class="asset-card ${a.id === 'tree-oak' ? 'selected' : ''}" data-asset="${a.id}" title="Colocar ${a.name}" aria-pressed="${a.id === 'tree-oak'}" hidden><img src="${assetUrl(a.id, 'vanilla')}" alt="" loading="lazy"/><span class="asset-name">${a.name}</span><span class="asset-groups" hidden>${ASSET_FAMILY_MEMBERSHIP[a.id].map(id => ASSET_FAMILIES.find(family => family.id === id)!.name).join(' · ')}</span></button>`).join('')}</div>
+        <p id="no-assets" class="empty-state" hidden>No hay objetos que coincidan. Prueba otro nombre o limpia la búsqueda.</p>
+      </div>
+      <div class="asset-placement">
+        <div class="placement-summary"><span>Próxima colocación</span><strong id="selected-asset-name">Roble</strong></div>
+        <div class="asset-size-controls"><label for="object-scale">Escala del objeto</label><md-slider id="object-scale" aria-label="Escala del objeto" min="25" max="400" value="100" step="5"></md-slider><div class="range-labels"><span>25 %</span><span id="object-scale-value">100 %</span><span>400 %</span></div></div>
+        <div class="asset-rotation"><button id="rotate-object" class="secondary-button compact">${icon('redo')} Girar 45°</button><output id="object-rotation" aria-label="Rotación de la próxima colocación" aria-live="polite">0°</output></div>
+      </div>
     </section>
     ${lightingPanel()}
-    <div class="sidebar-footer"><md-filled-button id="generate">${icon('sparkle', 'button-icon')} Generar mapa</md-filled-button><p>Generación procedural · Sin IA generativa</p></div>
+    <div id="generate-footer" class="sidebar-footer"><p id="scenario-error" class="size-error scenario-error" role="alert" hidden></p><button id="generate" class="primary-button" aria-describedby="size-error scenario-error">${icon('sparkle', 'button-icon')} Generar mapa</button></div>
   </aside>
-  <main class="workspace">
-    <div class="map-heading"><div class="map-heading-left">${iconButton('toggle-sidebar', 'menu', 'Abrir panel de creación')}<span class="map-type-icon">${icon('trees')}</span><div><div class="map-title-row"><h1 id="map-title">El bosque de los susurros</h1><span class="map-edited" hidden>Editado</span><span id="scenario-summary" class="scenario-summary" hidden></span></div><p><span id="map-biome">BOSQUE</span><span class="dot-separator">·</span><span id="map-dimensions">40 × 30 casillas</span><span class="dot-separator">·</span><span id="map-style">Ilustración natural</span></p></div></div><div class="map-view-actions"><label id="layer-picker" class="layer-picker" hidden><span>Planta</span><select id="active-layer" aria-label="Planta activa"><option value="0">Planta baja</option></select></label><div class="view-toggles"><button id="grid-toggle" class="view-toggle active" aria-pressed="true" title="Mostrar cuadrícula (G)">${icon('grid')}<span>Cuadrícula</span></button><button id="light-toggle" class="view-toggle active" aria-pressed="true" title="Activar o desactivar ambientación">${icon('sun')}<span>Atmósfera</span></button><button id="animation-toggle" class="view-toggle active" aria-pressed="true" aria-label="Animación" title="Pausar o reanudar las animaciones">${icon('water')}<span>Animación</span></button></div></div></div>
-    <div id="map-stage" class="map-stage">
-      <canvas id="map-canvas" aria-label="Mapa de batalla. Usa los controles para desplazar, pintar terrenos o colocar objetos."></canvas>
-      <div class="canvas-corner-label"><span class="live-dot"></span> LIENZO DE AVENTURA</div>
-      <div class="compass" aria-hidden="true"><span>N</span><svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="20"/><path class="compass-fill" d="m30 3 6 23 21 4-21 5-6 22-5-22-22-5 22-4Z"/><path d="M30 3v54M3 30h54"/><circle cx="30" cy="30" r="3"/></svg></div>
-      <div class="canvas-toolbar" role="toolbar" aria-label="Herramientas de edición">${iconButton('tool-pan', 'hand', 'Desplazar (V)', 'class="active" aria-pressed="true"')}${iconButton('tool-brush', 'brush', 'Pintar terreno (B)', 'aria-pressed="false"')}${iconButton('tool-place', 'trees', 'Colocar objetos', 'aria-pressed="false"')}${iconButton('tool-erase', 'eraser', 'Borrar objetos (E)', 'aria-pressed="false"')}<span class="tool-separator"></span>${iconButton('undo', 'undo', 'Deshacer (Ctrl+Z)', 'disabled')}${iconButton('redo', 'redo', 'Rehacer (Ctrl+Shift+Z)', 'disabled')}</div>
-      <div id="brush-panel" class="brush-panel" hidden><span class="eyebrow" id="brush-title">PINTAR TERRENO</span><div class="terrain-swatches">${([['grass', 'Hierba', '#778456'], ['path', 'Sendero', '#b4a273'], ['water', 'Agua', '#568d85'], ['floor', 'Suelo de piedra', '#939381'], ['wall', 'Muro', '#42483e'], ['rock', 'Roca sólida', '#53645e'], ['sand', 'Arena', '#aba16a'], ['wood', 'Suelo de madera', '#987143'], ['snow', 'Nieve', '#d1ddd7'], ['gravel', 'Grava', '#888e7f'], ['void', 'Sima / vacío', '#090b12']] as const).map(([id, label, color]) => `<button data-terrain="${id}" class="terrain-swatch ${id === 'grass' ? 'active' : ''}" style="--swatch:${color}" title="${label}" aria-label="${label}" aria-pressed="${id === 'grass'}"></button>`).join('')}</div><div class="brush-sizes"><span>Pincel</span>${[1, 2, 3].map(n => `<button data-brush="${n}" class="${n === 1 ? 'active' : ''}" aria-label="Pincel de ${n} casillas">${n}</button>`).join('')}</div></div>
-      <div class="canvas-bottom"><div id="tool-hint" class="tool-hint">${icon('hand')} Arrastra para explorar <span>·</span> Rueda para acercar</div><div class="zoom-controls">${iconButton('zoom-out', 'minus', 'Alejar')}<button id="zoom-level" title="Ajustar mapa a la pantalla">100 %</button>${iconButton('zoom-in', 'plus', 'Acercar')}<span></span>${iconButton('fit-map', 'fit', 'Ajustar a la pantalla (F)')}</div></div>
-      <div id="loading" class="loading-overlay"><div class="loading-card"><span class="loading-star">${icon('sparkle')}</span><h2>Dibujando otro mundo…</h2><p>Un lugar donde comienza una historia.</p><md-circular-progress indeterminate aria-label="Generando mapa"></md-circular-progress></div></div>
+  <main id="main" class="workspace" aria-labelledby="map-title">
+    <div class="map-heading">
+      <div class="map-heading-left"><h1 id="map-title">Mapa de batalla</h1></div>
+      <div class="map-view-actions"><label id="layer-picker" class="layer-picker" hidden><span>Planta</span><select id="active-layer" aria-label="Planta activa"><option value="0">Planta baja</option></select></label><div class="view-toggles"><button id="grid-toggle" class="view-toggle active" aria-pressed="true" aria-label="Cuadrícula" title="Mostrar cuadrícula (G)">${icon('grid')}<span>Cuadrícula</span></button><button id="light-toggle" class="view-toggle active" aria-pressed="true" aria-label="Atmósfera" title="Activar o desactivar ambientación">${icon('sun')}<span>Atmósfera</span></button><button id="animation-toggle" class="view-toggle active" aria-pressed="true" aria-label="Animación" title="Pausar o reanudar las animaciones">${icon('water')}<span>Animación</span></button></div></div>
     </div>
-    <footer class="status-bar"><div><span class="status-dot"></span><span id="save-status">Todo listo para la aventura</span></div><div class="status-details"><span id="object-count">0 objetos</span><span class="status-divider"></span><span id="cell-position">X — &nbsp; Y —</span><span class="status-divider"></span><button id="help-button">${icon('help')}<span>Atajos y ayuda</span></button></div></footer>
+    <div id="operation-error" class="operation-error" hidden><p id="operation-error-message" role="alert"></p>${iconButton('dismiss-operation-error', 'close', 'Ocultar mensaje de error')}</div>
+    <div id="map-stage" class="map-stage">
+      <canvas id="map-canvas" tabindex="0" aria-label="Mapa de batalla" aria-describedby="map-keyboard-help"></canvas>
+      <p id="map-keyboard-help" class="sr-only">V para desplazar, B para pintar, E para borrar objetos, R para girar la próxima colocación, G para cuadrícula, F para ajustar. Más y menos cambian el zoom. Las herramientas también están disponibles como botones.</p>
+      <div class="canvas-toolbar" role="toolbar" aria-label="Herramientas de edición">${iconButton('tool-pan', 'hand', 'Desplazar (V)', 'class="active" aria-pressed="true"')}${iconButton('tool-brush', 'brush', 'Pintar terreno (B)', 'aria-pressed="false"')}${iconButton('tool-place', 'trees', 'Colocar objetos', 'aria-pressed="false"')}${iconButton('tool-erase', 'eraser', 'Borrar objetos (E)', 'aria-pressed="false"')}<span class="tool-separator"></span>${iconButton('undo', 'undo', 'Deshacer (Ctrl+Z)', 'disabled')}${iconButton('redo', 'redo', 'Rehacer (Ctrl+Shift+Z)', 'disabled')}</div>
+      <div id="brush-panel" class="brush-panel" hidden><div class="brush-heading"><span class="eyebrow" id="brush-title">Pintar terreno</span>${iconButton('close-brush', 'close', 'Cerrar paleta')}</div><p id="terrain-name" class="terrain-name" aria-live="polite">Hierba</p><div class="terrain-swatches">${([['grass', 'Hierba', '#778456'], ['path', 'Sendero', '#b4a273'], ['water', 'Agua', '#568d85'], ['floor', 'Suelo de piedra', '#939381'], ['wall', 'Muro', '#42483e'], ['rock', 'Roca sólida', '#53645e'], ['sand', 'Arena', '#aba16a'], ['wood', 'Suelo de madera', '#987143'], ['snow', 'Nieve', '#d1ddd7'], ['gravel', 'Grava', '#888e7f'], ['void', 'Sima / vacío', '#090b12']] as const).map(([id, label, color]) => `<button data-terrain="${id}" class="terrain-swatch ${id === 'grass' ? 'active' : ''}" style="--swatch:${color}" title="${label}" aria-label="${label}" aria-pressed="${id === 'grass'}"></button>`).join('')}</div><div class="brush-sizes"><span>Pincel</span>${[1, 2, 3].map(n => `<button data-brush="${n}" class="${n === 1 ? 'active' : ''}" aria-label="Pincel de ${n} casillas" aria-pressed="${n === 1}">${n}</button>`).join('')}</div></div>
+      <div class="canvas-bottom"><div id="tool-hint" class="tool-hint">${icon('hand')} Arrastra para explorar <span>·</span> Rueda para acercar</div><div class="zoom-controls">${iconButton('zoom-out', 'minus', 'Alejar')}<button id="zoom-level" title="Ajustar mapa a la pantalla" aria-label="Zoom 100 %. Ajustar mapa a la pantalla">100 %</button>${iconButton('zoom-in', 'plus', 'Acercar')}<span></span>${iconButton('fit-map', 'fit', 'Ajustar a la pantalla (F)')}</div></div>
+      <div id="loading" class="loading-overlay" role="status" aria-live="polite"><div class="loading-card"><h2>Cargando ilustraciones…</h2><md-circular-progress indeterminate aria-label="Operación en curso"></md-circular-progress></div></div>
+    </div>
+    <footer class="status-bar">
+      <div class="status-project"><span class="map-edited" hidden>Editado</span><span id="save-status" role="status">Listo</span></div>
+      <div class="status-map"><span id="map-biome"></span><span id="map-dimensions"></span><span id="map-style"></span><span id="scenario-summary" class="scenario-summary" hidden></span><span id="object-count">0 objetos</span></div>
+      <div class="status-details"><span id="cell-position">X — &nbsp; Y —</span><button id="help-button" aria-label="Atajos y ayuda">${icon('help')}<span>Ayuda</span></button></div>
+    </footer>
   </main>
 </div>
-<dialog id="export-dialog" class="modal"><div class="modal-top"><span class="eyebrow">DE TU IMAGINACIÓN A LA MESA</span>${iconButton('close-export', 'close', 'Cerrar exportación')}</div><h2>Tu aventura, lista para llevar.</h2><p class="modal-description">Una imagen para imprimir o un GIF animado para dar vida a tu mesa virtual.</p><div class="export-preview"><img id="export-preview" alt="Vista previa del mapa actual"/><span id="export-map-name"></span></div><div class="export-fields"><md-outlined-select id="export-format" label="Formato">${option('png', 'PNG · Sin pérdida', true)}${option('jpeg', 'JPEG · Más ligero')}${option('gif', 'GIF · Animado en bucle')}</md-outlined-select><md-outlined-select id="export-resolution" label="Píxeles por casilla">${option('25', '25 px · GIF ligero')}${option('50', '50 px · Ligero')}${option('100', '100 px · Recomendado', true)}${option('150', '150 px · Alta resolución')}</md-outlined-select></div><label class="toggle-row export-grid"><span>${icon('grid')} Incluir cuadrícula</span><md-switch id="export-grid" aria-label="Incluir cuadrícula en la imagen" selected></md-switch></label><p class="export-meta"><span id="export-dimensions">4000 × 3000 px</span><span>Sin marcas de agua</span></p><p id="gif-note" class="export-note" hidden></p><div id="gif-progress" role="status" aria-live="polite" hidden><progress id="gif-progress-bar" max="24" value="0" aria-label="Progreso de exportación GIF"></progress><span id="gif-progress-text"></span></div><div class="modal-actions"><md-text-button id="cancel-export">Volver al mapa</md-text-button><md-filled-button id="download-image">${icon('download', 'button-icon')} Descargar imagen</md-filled-button></div><p id="export-error" class="export-error" role="alert" hidden></p><p class="export-note">La exportación usa la planta activa completa, no el zoom de la vista.</p></dialog>
-<dialog id="help-dialog" class="modal help-modal"><div class="modal-top"><span class="eyebrow">EL CUADERNO DEL CARTÓGRAFO</span>${iconButton('close-help', 'close', 'Cerrar ayuda')}</div><h2>Unas coordenadas para empezar.</h2><p class="modal-description">Configura un escenario y pulsa <strong>Generar mapa</strong>. La misma semilla y configuración producen el mismo mundo.</p><div class="shortcut-list">${[['V', 'Desplazar el lienzo'], ['B', 'Pintar terrenos'], ['E', 'Borrar objetos'], ['R', 'Girar el objeto seleccionado'], ['G', 'Mostrar u ocultar la cuadrícula'], ['F', 'Ajustar el mapa a la pantalla'], ['Ctrl Z', 'Deshacer'], ['Ctrl ⇧ Z', 'Rehacer']].map(([key, label]) => `<div><span>${label}</span><kbd>${key}</kbd></div>`).join('')}</div><p class="help-note">También puedes desplazar con Alt + arrastrar o el botón derecho. Los cambios se guardan en este navegador. Descarga el proyecto JSON para conservar una copia editable.</p><p class="help-note">Los objetos son decorativos: ajusta los pasos y coberturas según tu encuentro. Cada casilla equivale a 5 pies (aprox. 1,5 m).</p></dialog>
-<dialog id="confirm-dialog" class="modal confirm-modal"><span class="eyebrow">ANTES DE SEGUIR</span><h2>¿Reemplazar este mundo?</h2><p>Se reemplazará el mapa y sus ediciones. Puedes guardar el proyecto JSON para conservar una copia.</p><div class="modal-actions"><md-text-button id="cancel-replace">Cancelar</md-text-button><md-filled-button id="confirm-replace">Reemplazar mapa</md-filled-button></div></dialog>
+<dialog id="export-dialog" class="modal" aria-labelledby="export-title">
+  <div class="modal-heading"><h2 id="export-title">Exportar mapa</h2>${iconButton('close-export', 'close', 'Cerrar exportación')}</div>
+  <div class="export-preview"><img id="export-preview" alt="Vista previa de la planta que se exportará"/><span id="export-map-name"></span></div>
+  <div class="export-fields"><md-outlined-select id="export-format" label="Formato">${option('png', 'PNG · Sin pérdida', true)}${option('jpeg', 'JPEG · Más ligero')}${option('gif', 'GIF · Animado en bucle')}</md-outlined-select><md-outlined-select id="export-resolution" label="Píxeles por casilla">${option('25', '25 px · GIF ligero')}${option('50', '50 px · Ligero')}${option('100', '100 px · Recomendado', true)}${option('150', '150 px · Alta resolución')}</md-outlined-select></div>
+  <label class="toggle-row export-grid"><span>${icon('grid')} Incluir cuadrícula</span><md-switch id="export-grid" aria-label="Incluir cuadrícula en la imagen" selected></md-switch></label>
+  <p class="export-meta"><span id="export-dimensions">4000 × 3000 px</span><span>Sin marcas de agua</span></p>
+  <p id="gif-note" class="export-note" hidden></p>
+  <div id="gif-progress" role="status" aria-live="polite" hidden><progress id="gif-progress-bar" max="24" value="0" aria-label="Progreso de exportación GIF"></progress><span id="gif-progress-text"></span></div>
+  <div class="modal-actions"><md-text-button id="cancel-export">Volver al mapa</md-text-button><button id="download-image" class="primary-button">${icon('download', 'button-icon')} Descargar imagen</button></div>
+  <p id="export-error" class="export-error" role="alert" hidden></p>
+  <p class="export-note">Se exporta la planta activa completa, no el zoom de la vista. El proyecto JSON conserva todas las plantas.</p>
+</dialog>
+<dialog id="help-dialog" class="modal help-modal" aria-labelledby="help-title">
+  <div class="modal-heading"><h2 id="help-title">Atajos y ayuda</h2>${iconButton('close-help', 'close', 'Cerrar ayuda')}</div>
+  <p class="modal-description">Configura un escenario y pulsa <strong>Generar mapa</strong>. La misma semilla y configuración producen el mismo mapa. La generación es procedural, sin IA generativa.</p>
+  <div class="shortcut-list">${[['V', 'Desplazar el lienzo'], ['B', 'Pintar terrenos'], ['E', 'Borrar objetos'], ['R', 'Girar la próxima colocación 45°'], ['G', 'Mostrar u ocultar la cuadrícula'], ['F', 'Ajustar el mapa a la pantalla'], ['+ / −', 'Cambiar zoom'], ['Ctrl/Cmd Z', 'Deshacer'], ['Ctrl/Cmd ⇧ Z', 'Rehacer'], ['Ctrl/Cmd Y', 'Rehacer']].map(([key, label]) => `<div><span>${label}</span><kbd>${key}</kbd></div>`).join('')}</div>
+  <p class="help-note">También puedes desplazar con Alt + arrastrar o los botones central y derecho. En Objetos, el selector muestra una familia cada vez y la búsqueda abarca todas. Un objeto compartido aparece en sus distintas familias.</p>
+  <p class="help-note">Los cambios se guardan en este navegador cuando el almacenamiento está disponible. Descarga el proyecto JSON para conservar una copia editable de todas las plantas.</p>
+  <p class="help-note">Los objetos son decorativos. Cada casilla equivale a 5 pies (aprox. 1,5 m). La colocación y pintura sobre el canvas requieren un dispositivo de puntero.</p>
+</dialog>
+<dialog id="confirm-dialog" class="modal confirm-modal" aria-labelledby="confirm-title">
+  <h2 id="confirm-title">¿Reemplazar el mapa?</h2>
+  <p>Se reemplazarán el mapa y sus ediciones. Guarda el proyecto JSON si quieres conservarlos.</p>
+  <div class="modal-actions"><button id="cancel-replace" class="secondary-button" autofocus>Cancelar</button><button id="confirm-replace" class="danger-button">Reemplazar mapa</button></div>
+</dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div><input id="project-input" type="file" accept=".json,application/json" hidden />`;
 
 const view = new Viewport($('#map-canvas'));
+void document.fonts.ready.then(() => view.draw());
 let config: MapConfig = structuredClone(DEFAULT_CONFIG);
 let map: BattleMap;
 let mapImage: HTMLCanvasElement;
@@ -230,15 +269,23 @@ let lightingSnapshot: BattleMap | undefined;
 let previousCell: { x: number; y: number } | undefined;
 let renderTimer: ReturnType<typeof setTimeout> | undefined;
 let toastTimer: ReturnType<typeof setTimeout>;
-let category = 'all';
+let assetFamily: AssetFamilyId | undefined;
+const compactLayout = matchMedia('(max-width: 900px)');
+let openSelect: HTMLElement | undefined;
 let pendingConfirm: (() => void) | undefined;
 let pendingFit = true;
 let skipNextLocalSave = false;
 const worker = new Worker(new URL('./engine/generate.worker.ts', import.meta.url), { type: 'module' });
 
 function toast(message: string): void { const el = $('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('visible'), 3600); }
-function setBusy(value: boolean, label = 'Dibujando otro mundo…'): void {
+function showOperationError(message: string): void {
+  $('#operation-error-message').textContent = message;
+  $('#operation-error').hidden = false;
+}
+function setBusy(value: boolean, label = 'Generando mapa…'): void {
   busy = value; $('#loading').hidden = !value; $('#loading h2').textContent = label;
+  $('#world-panel').inert = value;
+  $('#map-stage').setAttribute('aria-busy', String(value));
   for (const id of ['generate', 'open-export', 'open-project', 'save-project']) ($(`#${id}`) as Field).disabled = value;
   document.querySelectorAll<HTMLButtonElement>('.theme-card').forEach(button => button.disabled = value);
   updateDimensions(); syncLightingControls(map, busy);
@@ -279,18 +326,22 @@ function saveLocal(): void {
 function syncLayerSelector(): void {
   const select = $('#active-layer') as HTMLSelectElement;
   const layers = [{ name: 'Planta baja', elevation: 0 }, ...(map.layers ?? [])];
-  select.replaceChildren(...layers.map((layer, index) => new Option(`${layer.name}${layer.elevation ? ` · ${layer.elevation > 0 ? '+' : ''}${layer.elevation}` : ''}`, String(index))));
+  const labels = layers.map(layer => `${layer.name}${layer.elevation ? ` · ${layer.elevation > 0 ? '+' : ''}${layer.elevation}` : ''}`);
+  // Painting and lighting redraw frequently; keep the open selector's DOM intact.
+  if (select.options.length !== labels.length || labels.some((label, index) => select.options[index].text !== label)) {
+    select.replaceChildren(...labels.map((label, index) => new Option(label, String(index))));
+  }
   select.value = String(map.activeLayer ?? 0);
   $('#layer-picker').hidden = layers.length < 2;
 }
 function updateStatus(): void {
   const layer = activeLayerData(map);
   $('#map-title').textContent = map.name;
-  $('#map-biome').textContent = BIOMES[map.config.biome].name.toUpperCase();
+  $('#map-biome').textContent = BIOMES[map.config.biome].name;
   $('#map-dimensions').textContent = `${map.config.width} × ${map.config.height} casillas`;
   $('#map-style').textContent = `${THEMES[map.config.theme].name} · ${aspectRatio(map.config.width, map.config.height)}`;
-  $('.map-type-icon').innerHTML = icon(BIOMES[map.config.biome].icon);
   $('#object-count').textContent = `${layer.objects.length} objetos`;
+  $('#object-count').title = 'Objetos de la planta activa';
   $('#scenario-summary').hidden = map.config.biome !== 'dungeon' || !layer.rooms;
   $('#scenario-summary').textContent = layer.rooms ? `${layer.rooms.length} ${layer.rooms.length === 1 ? 'cuarto' : 'cuartos'}` : '';
   $('#scenario-summary').title = 'Cuartos de la planta activa; la edición manual no recalcula este conteo.';
@@ -298,6 +349,10 @@ function updateStatus(): void {
   $('.map-edited').hidden = !edited;
   ($('#undo') as Field).disabled = !undoStack.length;
   ($('#redo') as Field).disabled = !redoStack.length;
+  if (!$('#assets-panel').hidden && assetFamily === undefined) {
+    assetFamily = DEFAULT_ASSET_FAMILY[map.config.biome];
+    filterAssets();
+  }
 }
 function syncControls(): void {
   document.querySelectorAll<HTMLElement>('[data-biome]').forEach(element => {
@@ -407,7 +462,6 @@ function syncObjectThemeUI(): void {
 }
 function syncThemeUI(): void {
   const theme = config.theme;
-  document.documentElement.dataset.theme = theme;
   document.querySelectorAll<HTMLElement>('.theme-card').forEach(el => { const active = el.dataset.theme === theme; el.classList.toggle('selected', active); el.setAttribute('aria-pressed', String(active)); });
   $('#theme-description').textContent = THEMES[theme].description;
   syncObjectThemeUI();
@@ -420,11 +474,19 @@ function updateDimensions(): void {
   const width = Number(($('#map-width') as Field).value), height = Number(($('#map-height') as Field).value);
   const dimensionError = dimensionsError(width, height);
   $('#size-error').hidden = !dimensionError; $('#size-error').textContent = dimensionError ?? '';
+  for (const id of ['map-width', 'map-height']) {
+    $(`#${id}`).setAttribute('aria-invalid', String(!!dimensionError));
+    $(`#${id}`).toggleAttribute('error', !!dimensionError);
+  }
   const optionError = dimensionError ? undefined : generationOptionsError(readConfig());
   $('#scenario-error').textContent = optionError ?? ''; $('#scenario-error').hidden = !optionError;
   ($('#generate') as Field).disabled = busy || !!dimensionError || !!optionError;
   const scenarioIds = ['forest','dungeon','cave','ruins','village','mountain','city', ...BUILDING_BIOMES] as const;
-  for (const biome of scenarioIds) $(`#${biome}-options`).hidden = config.biome !== biome;
+  for (const biome of scenarioIds) {
+    const section = $(`#${biome}-options`);
+    section.hidden = config.biome !== biome;
+    section.setAttribute('aria-describedby', 'scenario-error');
+  }
   $('#house-status-options').hidden = config.biome !== 'city';
   $('#general-density-control').hidden = ['warehouse', 'barracks'].includes(config.biome);
   $('#complexity-control').hidden = ['smithy', 'inn', 'temple', 'warehouse', 'barracks'].includes(config.biome);
@@ -439,6 +501,13 @@ function updateDimensions(): void {
   ($('#forest-river-direction') as Field).disabled = busy || !($('#water') as Toggle).selected;
   ($('#cave-natural-bridges') as Toggle).disabled = busy || ($('#cave-chasms') as Field).value === 'none';
   ($('#mountain-path-layout') as Field).disabled = busy || !($('#mountain-paths') as Toggle).selected;
+  // Use each control's declared constraints, not a second set of engine limits.
+  for (const field of document.querySelectorAll<NumberField>('.scenario-options md-outlined-text-field[type="number"]')) {
+    const invalid = !field.disabled && !field.validity.valid;
+    field.error = invalid;
+    field.errorText = invalid ? field.validationMessage : '';
+    field.setAttribute('aria-invalid', String(invalid));
+  }
   updatePathControls();
   $('#aspect-ratio').textContent = aspectRatio(width, height);
   $('#cell-total').textContent = dimensionError ? `${MIN_SIDE}–${MAX_SIDE} por lado · máx. 6.400` : `${(width * height).toLocaleString('es')} casillas`;
@@ -536,7 +605,12 @@ function requestGenerate(): void {
   const next = readConfig();
   const error = dimensionsError(next.width, next.height) ?? generationOptionsError(next);
   if (error) { toast(error); return; }
-  const run = () => { config = next; pendingFit = !map || map.config.width !== config.width || map.config.height !== config.height; setBusy(true); worker.postMessage(config); $('.sidebar').classList.remove('mobile-open'); };
+  const run = () => {
+    config = next; pendingFit = !map || map.config.width !== config.width || map.config.height !== config.height;
+    $('#operation-error').hidden = true;
+    setBusy(true); worker.postMessage(config);
+    if (compactLayout.matches) { setSidebarOpen(false); $('#map-canvas').focus(); }
+  };
   if (edited) confirmReplace(run); else run();
 }
 function confirmReplace(action: () => void): void { pendingConfirm = action; ($('#confirm-dialog') as HTMLDialogElement).showModal(); }
@@ -547,7 +621,6 @@ worker.onmessage = async (e: MessageEvent<{ map?: BattleMap; error?: string }>) 
     map = e.data.map; if (lighting) map.lighting = { ...lighting };
     lightingSnapshot = undefined;
     config = structuredClone(map.config); edited = false; undoStack.length = 0; redoStack.length = 0;
-    await new Promise(resolve => setTimeout(resolve, 30));
     render(pendingFit);
     if (skipNextLocalSave) {
       skipNextLocalSave = false;
@@ -557,13 +630,13 @@ worker.onmessage = async (e: MessageEvent<{ map?: BattleMap; error?: string }>) 
   } catch (error) {
     skipNextLocalSave = false;
     setBusy(false);
-    toast(error instanceof Error ? error.message : 'No se pudo generar el mapa.');
+    showOperationError(error instanceof Error ? error.message : 'No se pudo generar el mapa.');
   }
 };
 worker.onerror = () => {
   skipNextLocalSave = false;
   setBusy(false);
-  toast('No se pudo iniciar el generador. Recarga la página e inténtalo de nuevo.');
+  showOperationError('No se pudo iniciar el generador. Recarga la página e inténtalo de nuevo.');
 };
 
 const panelTabs = ['world', 'assets', 'lighting'] as const;
@@ -572,12 +645,26 @@ function selectTab(which: typeof panelTabs[number]): void {
     $(`#${name}-panel`).hidden = which !== name;
     const tab = $(`#tab-${name}`); tab.classList.toggle('active', which === name); tab.setAttribute('aria-selected', String(which === name)); tab.tabIndex = which === name ? 0 : -1;
   }
+  $('#generate-footer').hidden = which !== 'world';
+  if (which === 'assets') {
+    if (assetFamily === undefined && map) assetFamily = DEFAULT_ASSET_FAMILY[map.config.biome];
+    filterAssets();
+  }
+}
+function setSidebarOpen(open: boolean): void {
+  const sidebar = $('#editor-sidebar');
+  sidebar.classList.toggle('mobile-open', open);
+  sidebar.inert = compactLayout.matches && !open;
+  $('#toggle-sidebar').setAttribute('aria-expanded', String(!compactLayout.matches || open));
+  $('#toggle-sidebar').setAttribute('aria-label', open ? 'Cerrar panel del editor' : 'Abrir panel del editor');
 }
 function setTool(tool: Tool): void {
   view.setTool(tool);
   for (const t of ['pan', 'brush', 'place', 'erase']) { $(`#tool-${t}`).classList.toggle('active', t === tool); $(`#tool-${t}`).setAttribute('aria-pressed', String(t === tool)); }
   $('#brush-panel').hidden = tool !== 'brush' && tool !== 'erase';
-  $('.terrain-swatches').hidden = tool === 'erase'; $('#brush-title').textContent = tool === 'erase' ? 'BORRAR OBJETOS' : 'PINTAR TERRENO';
+  $('.terrain-swatches').hidden = tool === 'erase';
+  $('#terrain-name').hidden = tool === 'erase';
+  $('#brush-title').textContent = tool === 'erase' ? 'Borrar objetos' : 'Pintar terreno';
   if (tool === 'place') { selectTab('assets'); }
   const hints: Record<Tool, string> = { pan: `${icon('hand')} Arrastra para explorar <span>·</span> Rueda para acercar`, brush: `${icon('brush')} Arrastra para pintar <span>·</span> Ctrl Z para deshacer`, erase: `${icon('eraser')} Arrastra para borrar objetos <span>·</span> No borra terreno`, place: `${icon('trees')} Clic para colocar <span>·</span> R para girar` };
   $('#tool-hint').innerHTML = hints[tool];
@@ -616,7 +703,11 @@ view.onEdit = (x, y) => {
   edited = true; scheduleRender();
 };
 view.onEditEnd = () => { if (strokeSnapshot) { pushUndo(strokeSnapshot); strokeSnapshot = undefined; previousCell = undefined; render(); saveLocal(); } };
-view.onZoom = z => { $('#zoom-level').textContent = `${Math.round(z * 100)} %`; };
+view.onZoom = z => {
+  const value = `${Math.round(z * 100)} %`;
+  $('#zoom-level').textContent = value;
+  $('#zoom-level').setAttribute('aria-label', `Zoom ${value}. Ajustar mapa a la pantalla`);
+};
 view.onHover = (x, y) => { $('#cell-position').textContent = map && x >= 0 && y >= 0 && x < map.config.width && y < map.config.height ? `X ${String(x + 1).padStart(2, '0')}   Y ${String(y + 1).padStart(2, '0')}` : 'X —   Y —'; };
 
 document.querySelectorAll<HTMLElement>('.theme-card').forEach(el => el.addEventListener('click', () => {
@@ -705,7 +796,13 @@ $('.panel-tabs').addEventListener('keydown', e => {
   const next = e.key === 'Home' ? 0 : e.key === 'End' ? panelTabs.length - 1 : (current + (e.key === 'ArrowLeft' ? -1 : 1) + panelTabs.length) % panelTabs.length;
   selectTab(panelTabs[next]); $(`#tab-${panelTabs[next]}`).focus(); e.preventDefault();
 });
-for (const tool of ['pan', 'brush', 'erase', 'place'] as const) $(`#tool-${tool}`).addEventListener('click', () => setTool(tool));
+for (const tool of ['pan', 'brush', 'erase', 'place'] as const) $(`#tool-${tool}`).addEventListener('click', () => {
+  setTool(tool);
+  if (tool === 'place' && compactLayout.matches) {
+    setSidebarOpen(true);
+    $('#asset-family').focus();
+  }
+});
 $('#undo').addEventListener('click', () => restoreHistory()); $('#redo').addEventListener('click', () => restoreHistory(true));
 $('#zoom-in').addEventListener('click', () => view.zoomBy(1.25)); $('#zoom-out').addEventListener('click', () => view.zoomBy(.8));
 $('#fit-map').addEventListener('click', () => view.fit()); $('#zoom-level').addEventListener('click', () => view.fit());
@@ -728,19 +825,74 @@ function changeLighting(settings: LightingSettings, commit: boolean): void {
 }
 bindLightingControls(() => ({ ...DEFAULT_LIGHTING, ...map?.lighting }), changeLighting);
 $('#light-toggle').addEventListener('click', () => changeLighting({ ...DEFAULT_LIGHTING, ...map?.lighting, enabled: !(map?.lighting?.enabled ?? true) }, true));
-document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(el => el.addEventListener('click', () => { terrain = el.dataset.terrain as Terrain; document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(t => { t.classList.toggle('active', t === el); t.setAttribute('aria-pressed', String(t === el)); }); }));
-document.querySelectorAll<HTMLElement>('[data-brush]').forEach(el => el.addEventListener('click', () => { view.brushSize = Number(el.dataset.brush); document.querySelectorAll<HTMLElement>('[data-brush]').forEach(t => t.classList.toggle('active', t === el)); }));
+document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(el => el.addEventListener('click', () => {
+  terrain = el.dataset.terrain as Terrain;
+  $('#terrain-name').textContent = el.getAttribute('aria-label');
+  document.querySelectorAll<HTMLElement>('[data-terrain]').forEach(t => { t.classList.toggle('active', t === el); t.setAttribute('aria-pressed', String(t === el)); });
+}));
+document.querySelectorAll<HTMLElement>('[data-brush]').forEach(el => el.addEventListener('click', () => {
+  view.brushSize = Number(el.dataset.brush);
+  document.querySelectorAll<HTMLElement>('[data-brush]').forEach(t => { t.classList.toggle('active', t === el); t.setAttribute('aria-pressed', String(t === el)); });
+}));
+$('#close-brush').addEventListener('click', () => { $('#brush-panel').hidden = true; $(`#tool-${view.tool}`).focus(); });
 $('#object-theme').addEventListener('change', () => { objectTheme = ($('#object-theme') as Field).value as Theme; syncObjectThemeUI(); });
-document.querySelectorAll<HTMLElement>('[data-asset]').forEach(el => el.addEventListener('click', () => { view.selectedAsset = el.dataset.asset as AssetId; view.assetScale = ASSET_SIZES[view.selectedAsset] * Number(($('#object-scale') as Slider).value) / 100; document.querySelectorAll<HTMLElement>('[data-asset]').forEach(t => { t.classList.toggle('selected', t === el); t.setAttribute('aria-pressed', String(t === el)); }); setTool('place'); if (window.innerWidth < 760) { $('.sidebar').classList.remove('mobile-open'); toast('Objeto seleccionado. Toca el mapa para colocarlo.'); } }));
+document.querySelectorAll<HTMLElement>('[data-asset]').forEach(el => el.addEventListener('click', () => {
+  view.selectedAsset = el.dataset.asset as AssetId;
+  view.assetScale = ASSET_SIZES[view.selectedAsset] * Number(($('#object-scale') as Slider).value) / 100;
+  $('#selected-asset-name').textContent = ASSETS.find(asset => asset.id === view.selectedAsset)!.name;
+  document.querySelectorAll<HTMLElement>('[data-asset]').forEach(t => { t.classList.toggle('selected', t === el); t.setAttribute('aria-pressed', String(t === el)); });
+  setTool('place');
+  if (compactLayout.matches) {
+    setSidebarOpen(false); $('#map-canvas').focus();
+    toast('Objeto seleccionado. Toca el mapa para colocarlo.');
+  }
+}));
 $('#object-scale').addEventListener('input', () => { const scale = Number(($('#object-scale') as Slider).value); view.assetScale = ASSET_SIZES[view.selectedAsset] * scale / 100; $('#object-scale-value').textContent = `${scale} %`; view.draw(); });
+function rotateObject(): void {
+  view.rotation = (view.rotation + Math.PI / 4) % (Math.PI * 2);
+  $('#object-rotation').textContent = `${Math.round(view.rotation * 180 / Math.PI)}°`;
+  view.draw();
+}
+$('#rotate-object').addEventListener('click', rotateObject);
 function filterAssets(): void {
-  const query = ($('#asset-search') as Field).value.toLocaleLowerCase('es'); let found = 0;
-  document.querySelectorAll<HTMLElement>('[data-asset]').forEach(el => { const a = ASSETS.find(a => a.id === el.dataset.asset)!; const show = (category === 'all' || category === a.category) && a.name.toLocaleLowerCase('es').includes(query); el.hidden = !show; if (show) found++; }); $('#no-assets').hidden = found > 0;
+  const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+  const query = normalize(($('#asset-search') as Field).value);
+  const family = assetFamily ?? DEFAULT_ASSET_FAMILY[map?.config.biome ?? DEFAULT_CONFIG.biome];
+  ($('#asset-family') as Field).value = family;
+  let found = 0;
+  for (const asset of ASSETS) {
+    const card = $(`[data-asset="${asset.id}"]`);
+    const visible = query ? normalize(asset.name).includes(query) : ASSET_FAMILY_MEMBERSHIP[asset.id].includes(family);
+    card.hidden = !visible;
+    card.querySelector<HTMLElement>('.asset-groups')!.hidden = !query;
+    if (visible) found++;
+  }
+  const label = ASSET_FAMILIES.find(item => item.id === family)!.name;
+  $('#asset-results-label').textContent = query ? `${found} resultados en todas las familias` : `${label} · ${found} objetos`;
+  $('#clear-asset-search').hidden = !query;
+  $('#no-assets').hidden = found > 0;
 }
 $('#asset-search').addEventListener('input', filterAssets);
-document.querySelectorAll<HTMLElement>('.asset-filters [data-category]').forEach(el => el.addEventListener('click', () => { category = el.dataset.category!; document.querySelectorAll<HTMLElement>('.asset-filters button').forEach(t => t.classList.toggle('active', t === el)); filterAssets(); }));
-$('#toggle-sidebar').addEventListener('click', () => $('.sidebar').classList.toggle('mobile-open'));
-$('#close-sidebar').addEventListener('click', () => $('.sidebar').classList.remove('mobile-open'));
+$('#clear-asset-search').addEventListener('click', () => { ($('#asset-search') as Field).value = ''; filterAssets(); $('#asset-search').focus(); });
+$('#asset-family').addEventListener('change', () => {
+  assetFamily = ($('#asset-family') as Field).value as AssetFamilyId;
+  ($('#asset-search') as Field).value = '';
+  $('.asset-results').scrollTop = 0;
+  filterAssets();
+});
+$('#toggle-sidebar').addEventListener('click', () => {
+  const open = !$('#editor-sidebar').classList.contains('mobile-open');
+  setSidebarOpen(open);
+  if (open) $('.panel-tab[aria-selected="true"]').focus();
+});
+$('#close-sidebar').addEventListener('click', () => { setSidebarOpen(false); $('#toggle-sidebar').focus(); });
+compactLayout.addEventListener('change', () => {
+  const focusedInside = $('#editor-sidebar').contains(document.activeElement);
+  setSidebarOpen(false);
+  if (compactLayout.matches && focusedInside) $('#toggle-sidebar').focus();
+});
+setSidebarOpen(false);
+$('#dismiss-operation-error').addEventListener('click', () => { $('#operation-error').hidden = true; $('#map-canvas').focus(); });
 $('#help-button').addEventListener('click', () => ($('#help-dialog') as HTMLDialogElement).showModal());
 $('#close-help').addEventListener('click', () => ($('#help-dialog') as HTMLDialogElement).close());
 $('#cancel-replace').addEventListener('click', () => { pendingConfirm = undefined; ($('#confirm-dialog') as HTMLDialogElement).close(); });
@@ -754,7 +906,7 @@ $('#save-project').addEventListener('click', () => {
     download(new Blob([serializeProject()], { type: 'application/json' }), `${filename()}.${map.config.theme}.rc.json`);
     toast('Proyecto guardado. Puedes volver a abrirlo para editarlo.');
   } catch (error) {
-    toast(error instanceof Error ? error.message : 'No se pudo guardar el proyecto.');
+    showOperationError(error instanceof Error ? error.message : 'No se pudo guardar el proyecto.');
   }
 });
 $('#open-project').addEventListener('click', () => ($('#project-input') as HTMLInputElement).click());
@@ -763,9 +915,9 @@ $('#project-input').addEventListener('change', async () => {
   try {
     if (file.size > 5_000_000) throw new Error('El archivo supera el límite de 5 MB.');
     const loaded = parseMap(await file.text());
-    const apply = () => { map = loaded; config = structuredClone(loaded.config); objectTheme = config.theme; edited = true; undoStack.length = 0; redoStack.length = 0; syncControls(); render(true); saveLocal(); toast('Proyecto abierto. Tu aventura continúa.'); };
+    const apply = () => { map = loaded; config = structuredClone(loaded.config); objectTheme = config.theme; edited = true; undoStack.length = 0; redoStack.length = 0; $('#operation-error').hidden = true; syncControls(); render(true); saveLocal(); toast('Proyecto abierto.'); };
     if (edited) confirmReplace(apply); else apply();
-  } catch (error) { toast(error instanceof Error ? error.message : 'No se pudo abrir el proyecto.'); }
+  } catch (error) { showOperationError(error instanceof Error ? error.message : 'No se pudo abrir el proyecto.'); }
   input.value = '';
 });
 
@@ -782,8 +934,9 @@ $('#open-export').addEventListener('click', async () => {
   if (renderTimer) render();
 
   const snapshot = structuredClone(map);
+  const previewGrid = options.grid;
   exportSnapshot = snapshot;
-  ($('#export-grid') as Toggle).selected = options.grid;
+  ($('#export-grid') as Toggle).selected = previewGrid;
   $('#export-error').hidden = true;
   if (snapshot.config.width * snapshot.config.height * Number(($('#export-resolution') as Field).value) ** 2 > 40_000_000) {
     ($('#export-resolution') as Field).value = '50';
@@ -800,7 +953,7 @@ $('#open-export').addEventListener('click', async () => {
   preview.height = Math.round(640 * mapImage.height / mapImage.width);
   preview.getContext('2d')!.drawImage(mapImage, 0, 0, preview.width, preview.height);
   const blob = await new Promise<Blob | null>(resolve => preview.toBlob(resolve));
-  if (!blob || exportSnapshot !== snapshot || !exportDialog.open) return;
+  if (!blob || exportSnapshot !== snapshot || !exportDialog.open || ($('#export-grid') as Toggle).selected !== previewGrid) return;
 
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   previewUrl = URL.createObjectURL(blob);
@@ -864,7 +1017,7 @@ $('#download-image').addEventListener('click', async () => {
     }
     controller.signal.throwIfAborted();
     download(blob, `${name}.${format === 'jpeg' ? 'jpg' : format}`);
-    ($('#export-dialog') as HTMLDialogElement).close(); toast('Mapa exportado. Que empiece la aventura.');
+    ($('#export-dialog') as HTMLDialogElement).close(); toast('Mapa exportado.');
   } catch (error) {
     if (!controller.signal.aborted) { $('#export-error').textContent = error instanceof Error ? error.message : 'No se pudo exportar la imagen.'; $('#export-error').hidden = false; }
   } finally {
@@ -875,18 +1028,38 @@ $('#download-image').addEventListener('click', async () => {
 });
 for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('click', e => { if (e.target === dialog) { const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); } });
 
+for (const field of document.querySelectorAll<HTMLElement>('.scenario-options md-outlined-text-field[type="number"]')) {
+  field.setAttribute('required', '');
+  field.setAttribute('no-asterisk', '');
+  field.setAttribute('aria-describedby', 'scenario-error');
+}
+for (const field of document.querySelectorAll<HTMLElement>('[id^="village-wealth-"]')) field.setAttribute('step', 'any');
+for (const group of document.querySelectorAll<HTMLElement>('.scenario-fieldset')) group.setAttribute('aria-describedby', 'scenario-error');
+for (const select of document.querySelectorAll<HTMLElement>('md-outlined-select')) {
+  select.setAttribute('menu-positioning', 'fixed');
+  select.addEventListener('opening', () => { openSelect = select; });
+  select.addEventListener('closed', () => { if (openSelect === select) openSelect = undefined; });
+}
 document.addEventListener('keydown', e => {
-  if (busy || document.querySelector('dialog[open]')) return;
+  if (e.defaultPrevented || document.querySelector('dialog[open]')) return;
+  if (e.key === 'Escape') {
+    if (openSelect) return;
+    if (!$('#brush-panel').hidden) { $('#brush-panel').hidden = true; $(`#tool-${view.tool}`).focus(); e.preventDefault(); }
+    else if (compactLayout.matches && $('#editor-sidebar').classList.contains('mobile-open')) { setSidebarOpen(false); $('#toggle-sidebar').focus(); e.preventDefault(); }
+    return;
+  }
+  if (busy) return;
   if (e.composedPath().some(el => el instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT', 'MD-SLIDER', 'MD-OUTLINED-SELECT', 'MD-OUTLINED-TEXT-FIELD'].includes(el.tagName) || el.isContentEditable))) return;
   const key = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); restoreHistory(e.shiftKey); return; }
   if ((e.ctrlKey || e.metaKey) && key === 'y') { e.preventDefault(); restoreHistory(true); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (key === 'v') setTool('pan'); else if (key === 'b') setTool('brush'); else if (key === 'e') setTool('erase'); else if (key === 'g') toggleGrid(); else if (key === 'f') view.fit(); else if (key === 'r') { view.rotation += Math.PI / 4; view.draw(); toast(`Rotación: ${Math.round(view.rotation * 180 / Math.PI) % 360}°`); } else if (key === '+' || key === '=') view.zoomBy(1.25); else if (key === '-') view.zoomBy(.8);
+  if (key === 'v') setTool('pan'); else if (key === 'b') setTool('brush'); else if (key === 'e') setTool('erase'); else if (key === 'g') toggleGrid(); else if (key === 'f') view.fit(); else if (key === 'r') { rotateObject(); toast(`Rotación: ${$('#object-rotation').textContent}`); } else if (key === '+' || key === '=') view.zoomBy(1.25); else if (key === '-') view.zoomBy(.8);
 });
 
 async function init(): Promise<void> {
-  setBusy(true);
+  setBusy(true, 'Cargando ilustraciones…');
+  filterAssets();
   try {
     await loadAssets(); assetsReady = true;
     let restored: BattleMap | undefined;
@@ -897,12 +1070,12 @@ async function init(): Promise<void> {
       skipNextLocalSave = true;
       const detail = error instanceof Error ? error.message : 'El almacenamiento del navegador no está disponible.';
       $('#save-status').textContent = 'No se pudo recuperar el proyecto local';
-      toast(`No se pudo recuperar el proyecto guardado: ${detail} Se abrió un mapa nuevo sin sobrescribirlo.`);
+      showOperationError(`No se pudo recuperar el proyecto guardado: ${detail} Se abrirá un mapa nuevo sin sobrescribirlo.`);
     }
     if (restored) {
       map = restored; config = structuredClone(map.config); objectTheme = config.theme; edited = true;
       syncControls(); render(true); setBusy(false); saveLocal();
-    } else worker.postMessage(config);
-  } catch { setBusy(false); $('#save-status').textContent = 'No se pudieron cargar las ilustraciones'; toast('No se pudieron cargar los assets. Comprueba la conexión y recarga la página.'); }
+    } else { setBusy(true); worker.postMessage(config); }
+  } catch { setBusy(false); $('#save-status').textContent = 'No se pudieron cargar las ilustraciones'; showOperationError('No se pudieron cargar las ilustraciones. Recarga la página para volver a intentarlo.'); }
 }
 void init();

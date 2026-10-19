@@ -16,6 +16,7 @@ export class Viewport {
   private queued = false;
   private animation?: AnimatedScene;
   private animationTimer?: number;
+  private readonly ui: { accent: string; muted: string; danger: string };
   tool: Tool = 'pan';
   brushSize = 1;
   selectedAsset: AssetId = 'tree-oak';
@@ -28,6 +29,12 @@ export class Viewport {
   onHover?: (x: number, y: number) => void;
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
+    const style = getComputedStyle(document.documentElement);
+    this.ui = {
+      accent: style.getPropertyValue('--accent').trim(),
+      muted: style.getPropertyValue('--muted').trim(),
+      danger: style.getPropertyValue('--danger').trim(),
+    };
     new ResizeObserver(() => { this.resize(); }).observe(canvas.parentElement!);
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('pointerdown', e => {
@@ -98,12 +105,12 @@ export class Viewport {
     if (!this.image || !this.map) return;
     ctx.save(); ctx.translate(this.offset.x, this.offset.y); ctx.scale(this.zoom, this.zoom);
     ctx.shadowColor = '#00000066'; ctx.shadowBlur = 30 / this.zoom; ctx.shadowOffsetY = 10 / this.zoom;
-    ctx.fillStyle = '#26372b'; ctx.fillRect(0, 0, this.image.width, this.image.height);
+    ctx.fillStyle = '#1c151b'; ctx.fillRect(0, 0, this.image.width, this.image.height);
     ctx.shadowColor = 'transparent';
     ctx.drawImage(this.animation?.frame(performance.now()) ?? this.image, 0, 0, this.image.width, this.image.height);
-    ctx.strokeStyle = '#e4dbb544'; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, this.image.width, this.image.height);
-    // Discreet cartographic coordinates live outside the exported artwork.
-    ctx.fillStyle = '#8a948780'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${9 / this.zoom}px "DM Sans", sans-serif`;
+    ctx.strokeStyle = `${this.ui.accent}66`; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, this.image.width, this.image.height);
+    // Editor coordinates stay readable at every zoom and never enter the export.
+    ctx.fillStyle = this.ui.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${10 / this.zoom}px Inter, sans-serif`;
     for (let x = 0; x < this.map.config.width; x += 5) ctx.fillText(String(x + 1).padStart(2, '0'), (x + .5) * this.tile, -12 / this.zoom);
     for (let y = 0; y < this.map.config.height; y += 5) ctx.fillText(String(y + 1).padStart(2, '0'), -17 / this.zoom, (y + .5) * this.tile);
     if (this.pointer && !this.dragging && this.tool !== 'pan') {
@@ -114,7 +121,8 @@ export class Viewport {
           ctx.save(); ctx.globalAlpha = .65; ctx.translate((x + .5) * this.tile, (y + .5) * this.tile); ctx.rotate(this.rotation); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore();
         } else {
           const size = this.brushSize, shift = Math.floor(size / 2);
-          ctx.fillStyle = this.tool === 'erase' ? '#e19a8c33' : '#ead3a433'; ctx.strokeStyle = this.tool === 'erase' ? '#e3a99a' : '#f0d49d'; ctx.lineWidth = 1.5 / this.zoom;
+          const color = this.tool === 'erase' ? this.ui.danger : this.ui.accent;
+          ctx.fillStyle = `${color}33`; ctx.strokeStyle = color; ctx.lineWidth = 1.5 / this.zoom;
           ctx.fillRect((x - shift) * this.tile, (y - shift) * this.tile, size * this.tile, size * this.tile); ctx.strokeRect((x - shift) * this.tile, (y - shift) * this.tile, size * this.tile, size * this.tile);
         }
       }

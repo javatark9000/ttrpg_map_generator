@@ -1,8 +1,10 @@
+@layer reset, base, components, responsive;
+
 @layer components {
-  #gif-progress { margin-top: 12px; color: var(--muted); font-size: 10px; line-height: 1.6; }
-  #gif-progress-bar { display: block; width: 100%; height: 7px; margin-bottom: 8px; accent-color: var(--gold); }
+  #gif-progress { margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+  #gif-progress-bar { display: block; width: 100%; height: 8px; margin-bottom: 8px; overflow: hidden; border: 0; border-radius: 4px; background: var(--surface-3); accent-color: var(--accent); }
+  #gif-progress-bar::-webkit-progress-bar { background: var(--surface-3); }
+  #gif-progress-bar::-webkit-progress-value { background: var(--accent); }
+  #gif-progress-bar::-moz-progress-bar { background: var(--accent); }
   #gif-note { text-align: left; line-height: 1.7; }
-}
-@layer responsive {
-  @media (max-width: 1150px) { #animation-toggle span { display: none; } }
 }

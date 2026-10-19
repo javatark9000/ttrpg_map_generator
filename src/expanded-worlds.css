@@ -1,10 +1,16 @@
+@layer reset, base, components, responsive;
+
 @layer components {
-  .biome-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
-  .biome-list .biome-card { min-height: 63px; padding: 7px; gap: 7px; }
-  .biome-list .biome-art { width: 33px; height: 38px; }
-  .biome-list .biome-info strong { font-size: 11px; }
-  .biome-list .biome-info small, .biome-list .biome-check { display: none; }
-  .asset-filters { flex-wrap: wrap; }
-  .asset-filters button { padding: 7px 8px; }
-  #mountain-options .toggle-row > span { font-size: 10px; }
+  .biome-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+  .biome-card { min-height: 48px; display: flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-2); color: var(--text); text-align: left; transition: background 150ms ease, border-color 150ms ease; }
+  .biome-card:hover { border-color: #986673; background: var(--surface-3); }
+  .biome-card.selected, .biome-card[aria-pressed='true'] { border-color: var(--accent); background: #5a382f66; box-shadow: inset 3px 0 var(--accent); }
+  .biome-art { width: 28px; height: 32px; flex: none; display: grid; place-items: center; }
+  .biome-art img { width: 28px; height: 32px; object-fit: contain; }
+  .biome-info { min-width: 0; }
+  .biome-info strong { display: block; color: var(--text); font-size: 12px; font-weight: 550; line-height: 1.35; overflow-wrap: anywhere; }
+  .biome-check { width: 14px; height: 14px; flex: none; margin-left: auto; display: grid; place-items: center; border: 1px solid #8b5e69; border-radius: 50%; color: var(--accent-contrast); }
+  .biome-check .icon { width: 10px; height: 10px; opacity: 0; }
+  .biome-card.selected .biome-check { border-color: var(--accent); background: var(--accent); }
+  .biome-card.selected .biome-check .icon { opacity: 1; stroke-width: 2.4; }
 }

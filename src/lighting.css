@@ -1,14 +1,12 @@
-.panel-tabs { padding-inline: 10px; gap: 1px; }
-.panel-tab { gap: 4px; min-width: 0; font-size: 10px; }
-.panel-tab .icon { flex-shrink: 0; width: 14px; height: 14px; }
-#tab-assets > span { display: none; }
-.panel-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
-#lighting-panel .panel-description { margin-bottom: 8px; }
-.lighting-section { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 17px; }
-.lighting-slider { margin-top: 15px; }
-.lighting-slider .slider-label { gap: 8px; font-size: 11px; }
-.lighting-slider output { white-space: nowrap; }
-.light-compass { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--gold); font-size: 10px; }
-#light-compass-arrow { display: inline-block; font-size: 25px; width: 32px; height: 32px; text-align: center; }
-#lighting-reset { width: 100%; margin-top: 20px; }
-@media (max-width: 360px) { .panel-tab .icon { display: none; } }
+@layer reset, base, components, responsive;
+
+@layer components {
+  #lighting-panel .panel-description { margin-bottom: 8px; }
+  .lighting-section { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .lighting-slider { margin-top: 16px; }
+  .lighting-slider .slider-label { gap: 8px; }
+  .lighting-slider output { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .light-compass { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--accent); font-size: 10px; font-variant-numeric: tabular-nums; }
+  #light-compass-arrow { width: 32px; height: 32px; flex: none; display: inline-block; color: var(--accent); font-size: 25px; line-height: 32px; text-align: center; }
+  #lighting-reset { width: 100%; margin-top: 20px; }
+}
