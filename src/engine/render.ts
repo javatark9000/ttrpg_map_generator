@@ -94,8 +94,48 @@ export function orderedObjects(map: BattleMap): MapObject[] {
   return [...map.objects].sort((a, b) => z(a.asset) - z(b.asset) || a.y - b.y);
 }
 
-/** Optional layer capture is used by the animation renderer; ordinary exports remain unchanged. */
-export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], drawObjects = true): HTMLCanvasElement {
+export type ObjectFilter = boolean | ((object: MapObject) => boolean);
+
+function drawObjectPlane(ctx: CanvasRenderingContext2D, map: BattleMap, tile: number, options: RenderOptions, filter: ObjectFilter): void {
+  map = mapForActiveLayer(map);
+  const { theme } = map.config;
+  const lighting = lightingFor(map, options);
+  const objects = filter === false
+    ? []
+    : typeof filter === 'function'
+      ? orderedObjects(map).filter(filter)
+      : orderedObjects(map);
+  for (const obj of objects) {
+    const objectTheme = obj.theme ?? theme;
+    const image = assetImage(obj.asset, objectTheme);
+    const objectInk = (vanilla: string, dark: string, anime: string) => objectTheme === 'dark' ? dark : objectTheme === 'anime' ? anime : vanilla;
+    const size = obj.scale * tile, x = obj.x * tile, y = obj.y * tile;
+    if (lighting.enabled && lighting.halos > 0 && ['campfire', 'crystal', 'torch', 'altar'].includes(obj.asset)) {
+      ctx.save(); ctx.globalAlpha = lighting.halos / 100;
+      const warm = obj.asset === 'campfire' || obj.asset === 'torch';
+      const radius = tile * (warm ? 3.5 : 2.0);
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      glow.addColorStop(0, warm ? objectInk('#f5be6688', '#d79b5c88', '#ffe2a788') : objectInk('#8cdfbd45', '#b36a9955', '#d5b8ff88')); glow.addColorStop(.4, warm ? '#f5be6625' : objectInk('#8cdfbd18', '#ac58731a', '#b9b3ff25')); glow.addColorStop(1, '#00000000');
+      ctx.fillStyle = glow; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2); ctx.restore();
+    }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(obj.rotation);
+    ctx.shadowColor = obj.asset === 'window' ? 'transparent' : objectInk(obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88', '#060a10bb', '#35466566');
+    ctx.shadowBlur = tile * (obj.asset.startsWith('tree') ? .22 : .09); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+    ctx.drawImage(image, -size / 2, -size / 2, size, size); ctx.restore();
+  }
+}
+
+/** Rebuild only the object plane after placement/erasure; terrain and finishing stay cached. */
+export function renderObjectLayer(map: BattleMap, tile: number, options: RenderOptions, filter: ObjectFilter = true): HTMLCanvasElement {
+  map = mapForActiveLayer(map);
+  const canvas = document.createElement('canvas');
+  canvas.width = map.config.width * tile; canvas.height = map.config.height * tile;
+  drawObjectPlane(canvas.getContext('2d')!, map, tile, options, filter);
+  return canvas;
+}
+
+/** Optional layer capture is used by the editor and animation renderer; ordinary exports remain unchanged. */
+export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], drawObjects: boolean | ((object: MapObject) => boolean) = true): HTMLCanvasElement {
   map = mapForActiveLayer(map);
   const { width: w, height: h, biome, theme } = map.config;
   const palette = THEMES[theme];
@@ -226,25 +266,7 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
 
   drawSunlight(ctx, map, tile, options);
   splitLayer();
-  const objects = drawObjects ? orderedObjects(map) : [];
-  for (const obj of objects) {
-    const objectTheme = obj.theme ?? theme;
-    const image = assetImage(obj.asset, objectTheme);
-    const objectInk = (vanilla: string, dark: string, anime: string) => objectTheme === 'dark' ? dark : objectTheme === 'anime' ? anime : vanilla;
-    const size = obj.scale * tile, x = obj.x * tile, y = obj.y * tile;
-    if (lighting.enabled && lighting.halos > 0 && ['campfire', 'crystal', 'torch', 'altar'].includes(obj.asset)) {
-      ctx.save(); ctx.globalAlpha = lighting.halos / 100;
-      const warm = obj.asset === 'campfire' || obj.asset === 'torch';
-      const radius = tile * (warm ? 3.5 : 2.0);
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      glow.addColorStop(0, warm ? objectInk('#f5be6688', '#d79b5c88', '#ffe2a788') : objectInk('#8cdfbd45', '#b36a9955', '#d5b8ff88')); glow.addColorStop(.4, warm ? '#f5be6625' : objectInk('#8cdfbd18', '#ac58731a', '#b9b3ff25')); glow.addColorStop(1, '#00000000');
-      ctx.fillStyle = glow; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2); ctx.restore();
-    }
-    ctx.save(); ctx.translate(x, y); ctx.rotate(obj.rotation);
-    ctx.shadowColor = obj.asset === 'window' ? 'transparent' : objectInk(obj.asset.startsWith('tree') ? '#10251caa' : '#12221b88', '#060a10bb', '#35466566');
-    ctx.shadowBlur = tile * (obj.asset.startsWith('tree') ? .22 : .09); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-    ctx.drawImage(image, -size / 2, -size / 2, size, size); ctx.restore();
-  }
+  drawObjectPlane(ctx, map, tile, options, drawObjects);
 
   splitLayer();
   if (lighting.enabled && lighting.vignette > 0) {

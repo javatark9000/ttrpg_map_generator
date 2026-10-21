@@ -1,5 +1,5 @@
 import type { BattleMap, RenderOptions } from './types';
-import { orderedObjects, renderMap, terrainPath } from './render';
+import { orderedObjects, renderMap, renderObjectLayer, terrainPath } from './render';
 import { ANIMATED_ASSETS, createSpriteCache, drawMagic, drawPetals, drawSprite } from './animated-objects';
 import { hashString, Random } from './random';
 import { lightPulse, loopPhase } from './animation-settings';
@@ -9,6 +9,7 @@ import { THEME_IDS } from './themes';
 
 export interface AnimatedScene {
   frame(timeMs: number): HTMLCanvasElement;
+  updateObjects(map: BattleMap): void;
   dispose(): void;
 }
 export function hasAnimation(map: BattleMap, options: Pick<RenderOptions, 'bioluminescence'> = {}): boolean {
@@ -16,16 +17,16 @@ export function hasAnimation(map: BattleMap, options: Pick<RenderOptions, 'biolu
   return map.terrain.includes('water') || map.objects.some(o => ANIMATED_ASSETS.includes(o.asset) || (o.asset === 'mushrooms' && options.bioluminescence));
 }
 
-/** Cache terrain, individual sprites and finishing separately. Draw each object's
- * motion in its normal depth order, so trees occlude flames, magic and petals.
- * No procedural map regeneration and no SVG decoding per frame. */
+/** Cache terrain, static objects, individual animated sprites and finishing
+ * separately. Static furniture and architecture are composed once instead of
+ * being redrawn on every preview frame. */
 export function createAnimatedScene(map: BattleMap, tile: number, options: RenderOptions): AnimatedScene {
   map = mapForActiveLayer(map);
   const layers: HTMLCanvasElement[] = [];
   const lighting = lightingFor(map, options);
-  renderMap(map, tile, options, layers, false);
-  // The object layer is intentionally empty; small shared sprites replace it.
-  layers[1].width = layers[1].height = 1;
+  const isAnimated = (asset: string) => ANIMATED_ASSETS.includes(asset as typeof ANIMATED_ASSETS[number])
+    || (asset === 'mushrooms' && options.bioluminescence);
+  renderMap(map, tile, options, layers, object => !isAnimated(object.asset));
   const caches = new Map(THEME_IDS.map(theme => [theme, createSpriteCache(theme)]));
   const canvas = document.createElement('canvas');
   canvas.width = layers[0].width; canvas.height = layers[0].height;
@@ -37,7 +38,7 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
     x: (index % width + rng.next()) * tile, y: (Math.floor(index / width) + rng.next()) * tile,
     offset: rng.next() * Math.PI * 2, length: (.18 + rng.next() * .3) * tile,
   }]);
-  const objects = orderedObjects(map).map(obj => {
+  const describeObjects = () => orderedObjects(map).filter(obj => isAnimated(obj.asset)).map(obj => {
     const objectTheme = obj.theme ?? theme;
     const cache = caches.get(objectTheme)!;
     return { obj, theme: objectTheme, magic: cache.magic,
@@ -46,8 +47,9 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
       tint: obj.asset === 'crystal' || obj.asset === 'altar' || (obj.asset === 'mushrooms' && options.bioluminescence) ? cache.tint(obj.asset) : undefined,
     };
   });
-  const lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
-  const lilies = objects.filter(({obj}) => obj.asset === 'lilies');
+  let objects = describeObjects();
+  let lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
+  let lilies = objects.filter(({obj}) => obj.asset === 'lilies');
   return {
     frame(timeMs) {
       const phase = loopPhase(timeMs);
@@ -83,6 +85,7 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
         glow.addColorStop(.45, `rgba(${color},${pulse * .09 * glowStrength})`); glow.addColorStop(1, `rgba(${color},0)`);
         ctx.fillStyle = glow; ctx.fillRect(x-radius, y-radius, radius*2, radius*2);
       }
+      ctx.drawImage(layers[1], 0, 0);
       for (const {obj, offset, sprite, tint, theme, magic} of objects) {
         const pulse = lightPulse(phase, offset), size = obj.scale * tile;
         ctx.save(); ctx.translate(obj.x * tile, obj.y * tile); ctx.rotate(obj.rotation); ctx.scale(size / 128, size / 128);
@@ -110,6 +113,14 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
       }
       ctx.drawImage(layers[2], 0, 0);
       return canvas;
+    },
+    updateObjects(nextMap) {
+      map = mapForActiveLayer(nextMap);
+      const replacement = renderObjectLayer(map, tile, options, object => !isAnimated(object.asset));
+      layers[1].width = layers[1].height = 1; layers[1] = replacement;
+      objects = describeObjects();
+      lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
+      lilies = objects.filter(({obj}) => obj.asset === 'lilies');
     },
     dispose() { for (const cache of caches.values()) cache.dispose(); for (const layer of [...layers, canvas]) { layer.width = 1; layer.height = 1; } },
   };

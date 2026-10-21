@@ -5,6 +5,7 @@ export type Tool = 'pan' | 'brush' | 'erase' | 'place';
 export class Viewport {
   private ctx: CanvasRenderingContext2D;
   private image?: HTMLCanvasElement;
+  private images: HTMLCanvasElement[] = [];
   private map?: BattleMap;
   private tile = 56;
   private zoom = 1;
@@ -14,6 +15,7 @@ export class Viewport {
   private painting = false;
   private last = { x: 0, y: 0 };
   private queued = false;
+  private editPreview = new Set<number>();
   private animation?: AnimatedScene;
   private animationTimer?: number;
   private readonly ui: { accent: string; muted: string; danger: string };
@@ -66,7 +68,9 @@ export class Viewport {
     window.clearTimeout(this.animationTimer);
     if (!this.animation || document.hidden) return;
     if (!document.querySelector('dialog[open]')) this.draw();
-    this.animationTimer = window.setTimeout(() => this.tickAnimation(), 100);
+    const cells = (this.map?.config.width ?? 0) * (this.map?.config.height ?? 0);
+    const delay = cells > 6000 ? 200 : cells > 3600 ? 150 : 100;
+    this.animationTimer = window.setTimeout(() => this.tickAnimation(), delay);
   }
   private point(e: MouseEvent): { x: number; y: number } { const rect = this.canvas.getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top }; }
   private cell(p: { x: number; y: number }): { x: number; y: number } { return { x: (p.x - this.offset.x) / this.zoom / this.tile, y: (p.y - this.offset.y) / this.zoom / this.tile }; }
@@ -76,7 +80,28 @@ export class Viewport {
     this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr);
     this.draw();
   }
-  setMap(map: BattleMap, image: HTMLCanvasElement, fit = false): void { this.map = map; this.image = image; this.tile = image.width / map.config.width; if (fit) this.fit(); else this.draw(); }
+  setMap(map: BattleMap, image: HTMLCanvasElement, fit = false): void { this.setMapLayers(map, [image], fit); }
+  setMapLayers(map: BattleMap, images: HTMLCanvasElement[], fit = false): void {
+    if (!images.length) return;
+    this.map = map; this.images = images; this.image = images[0]; this.tile = images[0].width / map.config.width;
+    this.editPreview.clear();
+    if (fit) this.fit(); else this.draw();
+  }
+  replaceLayer(index: number, image: HTMLCanvasElement): void {
+    this.images[index] = image;
+    if (index === 0) this.image = image;
+    this.editPreview.clear(); this.draw();
+  }
+  updateAnimationObjects(map: BattleMap): void { this.animation?.updateObjects(map); this.draw(); }
+  previewEdit(x: number, y: number): void {
+    if (!this.map) return;
+    const size = this.brushSize, shift = Math.floor(size / 2), { width, height } = this.map.config;
+    for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) {
+      const xx = x + dx - shift, yy = y + dy - shift;
+      if (xx >= 0 && yy >= 0 && xx < width && yy < height) this.editPreview.add(yy * width + xx);
+    }
+    this.draw();
+  }
   setTool(tool: Tool): void { this.tool = tool; this.updateCursor(); this.draw(); }
   private updateCursor(): void { this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair'; }
   fit(): void {
@@ -107,7 +132,17 @@ export class Viewport {
     ctx.shadowColor = '#00000066'; ctx.shadowBlur = 30 / this.zoom; ctx.shadowOffsetY = 10 / this.zoom;
     ctx.fillStyle = '#1c151b'; ctx.fillRect(0, 0, this.image.width, this.image.height);
     ctx.shadowColor = 'transparent';
-    ctx.drawImage(this.animation?.frame(performance.now()) ?? this.image, 0, 0, this.image.width, this.image.height);
+    const animated = this.animation?.frame(performance.now());
+    if (animated) ctx.drawImage(animated, 0, 0, this.image.width, this.image.height);
+    else for (const image of this.images) ctx.drawImage(image, 0, 0, this.image.width, this.image.height);
+    if (this.editPreview.size) {
+      const color = this.tool === 'erase' ? this.ui.danger : this.ui.accent;
+      ctx.fillStyle = `${color}38`;
+      for (const index of this.editPreview) {
+        const x = index % this.map.config.width, y = Math.floor(index / this.map.config.width);
+        ctx.fillRect(x * this.tile, y * this.tile, this.tile, this.tile);
+      }
+    }
     ctx.strokeStyle = `${this.ui.accent}66`; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, this.image.width, this.image.height);
     // Editor coordinates stay readable at every zoom and never enter the export.
     ctx.fillStyle = this.ui.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${10 / this.zoom}px Inter, sans-serif`;

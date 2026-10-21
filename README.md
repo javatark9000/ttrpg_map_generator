@@ -294,6 +294,8 @@ El formato admite hasta **ocho plantas adicionales**, pero el editor no ofrece c
 
 Terrenos disponibles: hierba, sendero, agua, suelo de piedra, muro, roca sólida, arena, madera, nieve, grava y sima/vacío. Pinceles de uno, dos o tres casillas; zoom, desplazamiento, coordenadas y ajuste a pantalla.
 
+La previsualización del editor reduce automáticamente sus píxeles por casilla en mapas grandes o muy alargados para mantener la interacción fluida. Esto no modifica la geometría, el JSON ni la resolución elegida al exportar. Durante una pincelada se muestra una superposición ligera y el terreno se recompone al soltar el puntero. Colocar o borrar objetos actualiza solo su capa cacheada, sin reconstruir terreno, texturas e iluminación; si la animación está activa, la capa estática que no se muestra se sincroniza al pausarla o al abrir la exportación.
+
 El historial permite hasta **30 pasos**. Regenerar o abrir otro proyecto reinicia el historial. El último proyecto se guarda automáticamente en este navegador; conviene descargar también el JSON como copia de seguridad.
 
 | Acción | Atajo |
@@ -354,7 +356,7 @@ La animación se aplica también a elementos pintados o colocados manualmente y 
 - Los mapas sin elementos animables no mantienen un ciclo continuo de repintado.
 - **Setas bioluminiscentes** es una preferencia de sesión para la vista animada y el GIF: no se guarda en JSON ni al recargar y no afecta PNG/JPEG.
 - **Atmósfera** controla iluminación y halos, no las ondas, llamas, runas o el balanceo.
-- Terreno, iluminación y sprites se cachean; no se regenera el mapa ni se decodifican SVG cada fotograma. Los objetos se componen en orden de profundidad.
+- Terreno, iluminación, objetos estáticos y sprites animados se cachean; no se regenera el mapa ni se decodifican SVG cada fotograma. La vista reduce moderadamente la frecuencia de animación en mapas grandes; la exportación GIF conserva sus 24 fotogramas de 100 ms. Los objetos se componen en orden de profundidad.
 
 ## Exportación
 
@@ -413,6 +415,7 @@ src/
     new-assets.ts               Catálogo ampliado, tamaños y alturas de sombra
     themes.ts                   Paletas y rutas de SVG por temática
     dimensions.ts               Límites, formatos y relaciones de aspecto
+    editor-resolution.ts        Presupuesto adaptativo de píxeles para la previsualización
     scenario-options.ts         Validación compartida y opciones de escenarios
     random.ts                   PRNG con semilla y ruido fractal
     generate.ts                 Validación, mapa base y orientación de interiores

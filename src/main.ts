@@ -14,9 +14,10 @@ import { THEMES, THEME_IDS, assetUrl } from './engine/themes';
 import { SIZE_PRESETS, MIN_SIDE, MAX_SIDE, dimensionsError, aspectRatio } from './engine/dimensions';
 import { PATH_LAYOUTS, VILLAGE_LAYOUTS, generationOptionsError } from './engine/scenario-options';
 import { freshSeed } from './engine/random';
-import { loadAssets, renderMap } from './engine/render';
+import { loadAssets, renderMap, renderObjectLayer } from './engine/render';
 import { createAnimatedScene, hasAnimation } from './engine/animation';
 import { gifDimensions } from './engine/animation-settings';
+import { editorTileSize } from './engine/editor-resolution';
 import { parseMap, STORAGE_KEY, LEGACY_STORAGE_KEY } from './engine/storage';
 import { activeLayerData } from './engine/map-layers';
 import { Viewport } from './viewport';
@@ -252,6 +253,8 @@ void document.fonts.ready.then(() => view.draw());
 let config: MapConfig = structuredClone(DEFAULT_CONFIG);
 let map: BattleMap;
 let mapImage: HTMLCanvasElement;
+let editorLayers: HTMLCanvasElement[] = [];
+let editorObjectsDirty = false;
 let objectTheme: Theme = config.theme;
 view.selectedTheme = objectTheme;
 let manualDungeonRooms = { small: 4, medium: 2, large: 1 };
@@ -294,20 +297,50 @@ function render(fit = false): void {
   if (!map || !assetsReady) return;
   clearTimeout(renderTimer); renderTimer = undefined;
   view.setAnimation();
-  mapImage = renderMap(map, 56, options); view.setMap(map, mapImage, fit); updateAnimation(); updateStatus();
+  const editorTile = editorTileSize(map.config.width, map.config.height);
+  const nextLayers: HTMLCanvasElement[] = [];
+  mapImage = renderMap(map, editorTile, options, nextLayers);
+  const previousLayers = editorLayers; editorLayers = nextLayers.length ? nextLayers : [mapImage];
+  editorObjectsDirty = false;
+  view.setMapLayers(map, editorLayers, fit);
+  for (const layer of previousLayers) { layer.width = 1; layer.height = 1; }
+  updateAnimation(); updateStatus();
+}
+function syncEditorObjectLayer(): void {
+  if (!map || !editorObjectsDirty || editorLayers.length < 3) return;
+  const tile = editorLayers[0].width / map.config.width;
+  const replacement = renderObjectLayer(map, tile, options);
+  const previous = editorLayers[1]; editorLayers[1] = replacement;
+  editorObjectsDirty = false; view.replaceLayer(1, replacement);
+  previous.width = 1; previous.height = 1;
+}
+function renderObjectsOnly(): void {
+  if (!map || editorLayers.length < 3) { render(); return; }
+  editorObjectsDirty = true;
+  if (animationEnabled && hasAnimation(map, options)) view.updateAnimationObjects(map);
+  else syncEditorObjectLayer();
+  updateStatus();
 }
 function updateAnimation(): void {
+  if (!animationEnabled) syncEditorObjectLayer();
   $('#animation-toggle').classList.toggle('active', animationEnabled);
   $('#animation-toggle').setAttribute('aria-pressed', String(animationEnabled));
   $('#animation-toggle').title = animationEnabled ? 'Pausar las animaciones' : 'Reanudar las animaciones';
+  const animationTile = map
+    ? Math.min(gifDimensions(map.config.width, map.config.height, 56).tile, editorTileSize(map.config.width, map.config.height))
+    : 56;
   view.setAnimation(map && assetsReady && animationEnabled && hasAnimation(map, options)
-    ? createAnimatedScene(map, gifDimensions(map.config.width, map.config.height, 56).tile, options) : undefined);
+    ? createAnimatedScene(map, animationTile, options) : undefined);
 }
 $('#animation-toggle').addEventListener('click', () => { animationEnabled = !animationEnabled; updateAnimation(); });
 $('#bioluminescence').addEventListener('change', () => {
   options.bioluminescence = ($('#bioluminescence') as Toggle).selected; updateAnimation();
 });
-function scheduleRender(): void { if (!renderTimer) renderTimer = setTimeout(() => render(), 100); }
+function scheduleRender(): void {
+  clearTimeout(renderTimer);
+  const cells = map ? map.config.width * map.config.height : 0;
+  renderTimer = setTimeout(() => render(), cells > 3600 ? 400 : 100);
+}
 function serializeProject(): string {
   const json = JSON.stringify(map);
   if (new Blob([json]).size > 5_000_000) {
@@ -686,6 +719,7 @@ function paintCell(x: number, y: number): void {
   } else if (view.tool === 'erase') {
     layer.objects = layer.objects.filter(o => Math.hypot(o.x - x - .5, o.y - y - .5) > Math.max(size * .6, o.scale * .36));
   }
+  view.previewEdit(x, y);
 }
 view.onEdit = (x, y) => {
   if (busy || !map) return;
@@ -700,9 +734,16 @@ view.onEdit = (x, y) => {
     else paintCell(x, y);
     previousCell = { x, y };
   }
-  edited = true; scheduleRender();
+  edited = true;
+  // A complete terrain/lighting render is deliberately deferred until pointer-up.
+  // paintCell has already added a cheap dirty-cell overlay to the viewport.
 };
-view.onEditEnd = () => { if (strokeSnapshot) { pushUndo(strokeSnapshot); strokeSnapshot = undefined; previousCell = undefined; render(); saveLocal(); } };
+view.onEditEnd = () => {
+  if (!strokeSnapshot) return;
+  pushUndo(strokeSnapshot); strokeSnapshot = undefined; previousCell = undefined;
+  if (view.tool === 'place' || view.tool === 'erase') renderObjectsOnly(); else render();
+  saveLocal();
+};
 view.onZoom = z => {
   const value = `${Math.round(z * 100)} %`;
   $('#zoom-level').textContent = value;
@@ -932,6 +973,7 @@ exportDialog.addEventListener('close', () => {
 $('#open-export').addEventListener('click', async () => {
   if (!map || busy) return;
   if (renderTimer) render();
+  syncEditorObjectLayer();
 
   const snapshot = structuredClone(map);
   const previewGrid = options.grid;
@@ -951,7 +993,8 @@ $('#open-export').addEventListener('click', async () => {
   const preview = document.createElement('canvas');
   preview.width = 640;
   preview.height = Math.round(640 * mapImage.height / mapImage.width);
-  preview.getContext('2d')!.drawImage(mapImage, 0, 0, preview.width, preview.height);
+  const previewContext = preview.getContext('2d')!;
+  for (const layer of editorLayers) previewContext.drawImage(layer, 0, 0, preview.width, preview.height);
   const blob = await new Promise<Blob | null>(resolve => preview.toBlob(resolve));
   if (!blob || exportSnapshot !== snapshot || !exportDialog.open || ($('#export-grid') as Toggle).selected !== previewGrid) return;
 
