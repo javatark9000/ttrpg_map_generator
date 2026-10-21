@@ -1,20 +1,13 @@
-export const EDITOR_MAX_PIXELS = 750_000;
-export const EDITOR_FULL_DETAIL_MAX_CELLS = 1_600;
-export const EDITOR_MAX_SIDE = 4096;
-export const EDITOR_MAX_TILE = 56;
-export const EDITOR_MIN_TILE = 8;
+const MAX_PIXELS = 750_000;
+const FULL_DETAIL_CELLS = 1_600;
+const MAX_SIDE = 4096;
+const MAX_TILE = 56;
+const MIN_TILE = 8;
 
-/**
- * Keep the interactive canvas within a predictable pixel budget. Exporting uses
- * its requested resolution separately, so this only affects the editor preview.
- */
+/** Choose an editor-only resolution; exports use their requested tile size. */
 export function editorTileSize(width: number, height: number): number {
   const cells = Math.max(1, width * height);
-  const longestSide = Math.max(1, width, height);
-  const pixelBudget = cells <= EDITOR_FULL_DETAIL_MAX_CELLS
-    ? cells * EDITOR_MAX_TILE * EDITOR_MAX_TILE
-    : EDITOR_MAX_PIXELS;
-  const byArea = Math.floor(Math.sqrt(pixelBudget / cells));
-  const bySide = Math.floor(EDITOR_MAX_SIDE / longestSide);
-  return Math.max(EDITOR_MIN_TILE, Math.min(EDITOR_MAX_TILE, byArea, bySide));
+  const byArea = cells <= FULL_DETAIL_CELLS ? MAX_TILE : Math.floor(Math.sqrt(MAX_PIXELS / cells));
+  const bySide = Math.floor(MAX_SIDE / Math.max(1, width, height));
+  return Math.max(MIN_TILE, Math.min(MAX_TILE, byArea, bySide));
 }

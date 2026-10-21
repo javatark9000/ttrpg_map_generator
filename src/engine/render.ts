@@ -94,17 +94,13 @@ export function orderedObjects(map: BattleMap): MapObject[] {
   return [...map.objects].sort((a, b) => z(a.asset) - z(b.asset) || a.y - b.y);
 }
 
-export type ObjectFilter = boolean | ((object: MapObject) => boolean);
+type ObjectFilter = (object: MapObject) => boolean;
 
-function drawObjectPlane(ctx: CanvasRenderingContext2D, map: BattleMap, tile: number, options: RenderOptions, filter: ObjectFilter): void {
+function drawObjectPlane(ctx: CanvasRenderingContext2D, map: BattleMap, tile: number, options: RenderOptions, filter?: ObjectFilter): void {
   map = mapForActiveLayer(map);
   const { theme } = map.config;
   const lighting = lightingFor(map, options);
-  const objects = filter === false
-    ? []
-    : typeof filter === 'function'
-      ? orderedObjects(map).filter(filter)
-      : orderedObjects(map);
+  const objects = filter ? orderedObjects(map).filter(filter) : orderedObjects(map);
   for (const obj of objects) {
     const objectTheme = obj.theme ?? theme;
     const image = assetImage(obj.asset, objectTheme);
@@ -126,7 +122,7 @@ function drawObjectPlane(ctx: CanvasRenderingContext2D, map: BattleMap, tile: nu
 }
 
 /** Rebuild only the object plane after placement/erasure; terrain and finishing stay cached. */
-export function renderObjectLayer(map: BattleMap, tile: number, options: RenderOptions, filter: ObjectFilter = true): HTMLCanvasElement {
+export function renderObjectLayer(map: BattleMap, tile: number, options: RenderOptions, filter?: ObjectFilter): HTMLCanvasElement {
   map = mapForActiveLayer(map);
   const canvas = document.createElement('canvas');
   canvas.width = map.config.width * tile; canvas.height = map.config.height * tile;
@@ -135,7 +131,7 @@ export function renderObjectLayer(map: BattleMap, tile: number, options: RenderO
 }
 
 /** Optional layer capture is used by the editor and animation renderer; ordinary exports remain unchanged. */
-export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], drawObjects: boolean | ((object: MapObject) => boolean) = true): HTMLCanvasElement {
+export function renderMap(map: BattleMap, tile: number, options: RenderOptions, layers?: HTMLCanvasElement[], objectFilter?: ObjectFilter): HTMLCanvasElement {
   map = mapForActiveLayer(map);
   const { width: w, height: h, biome, theme } = map.config;
   const palette = THEMES[theme];
@@ -266,7 +262,7 @@ export function renderMap(map: BattleMap, tile: number, options: RenderOptions, 
 
   drawSunlight(ctx, map, tile, options);
   splitLayer();
-  drawObjectPlane(ctx, map, tile, options, drawObjects);
+  drawObjectPlane(ctx, map, tile, options, objectFilter);
 
   splitLayer();
   if (lighting.enabled && lighting.vignette > 0) {

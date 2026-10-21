@@ -1,4 +1,4 @@
-import type { BattleMap, RenderOptions } from './types';
+import type { AssetId, BattleMap, RenderOptions } from './types';
 import { orderedObjects, renderMap, renderObjectLayer, terrainPath } from './render';
 import { ANIMATED_ASSETS, createSpriteCache, drawMagic, drawPetals, drawSprite } from './animated-objects';
 import { hashString, Random } from './random';
@@ -24,7 +24,7 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
   map = mapForActiveLayer(map);
   const layers: HTMLCanvasElement[] = [];
   const lighting = lightingFor(map, options);
-  const isAnimated = (asset: string) => ANIMATED_ASSETS.includes(asset as typeof ANIMATED_ASSETS[number])
+  const isAnimated = (asset: AssetId) => ANIMATED_ASSETS.includes(asset)
     || (asset === 'mushrooms' && options.bioluminescence);
   renderMap(map, tile, options, layers, object => !isAnimated(object.asset));
   const caches = new Map(THEME_IDS.map(theme => [theme, createSpriteCache(theme)]));
@@ -50,6 +50,11 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
   let objects = describeObjects();
   let lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
   let lilies = objects.filter(({obj}) => obj.asset === 'lilies');
+  const refreshObjects = () => {
+    objects = describeObjects();
+    lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
+    lilies = objects.filter(({obj}) => obj.asset === 'lilies');
+  };
   return {
     frame(timeMs) {
       const phase = loopPhase(timeMs);
@@ -118,9 +123,7 @@ export function createAnimatedScene(map: BattleMap, tile: number, options: Rende
       map = mapForActiveLayer(nextMap);
       const replacement = renderObjectLayer(map, tile, options, object => !isAnimated(object.asset));
       layers[1].width = layers[1].height = 1; layers[1] = replacement;
-      objects = describeObjects();
-      lights = objects.filter(({obj}) => ['torch','campfire','crystal','altar'].includes(obj.asset) || (obj.asset === 'mushrooms' && options.bioluminescence));
-      lilies = objects.filter(({obj}) => obj.asset === 'lilies');
+      refreshObjects();
     },
     dispose() { for (const cache of caches.values()) cache.dispose(); for (const layer of [...layers, canvas]) { layer.width = 1; layer.height = 1; } },
   };

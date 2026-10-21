@@ -294,7 +294,7 @@ El formato admite hasta **ocho plantas adicionales**, pero el editor no ofrece c
 
 Terrenos disponibles: hierba, sendero, agua, suelo de piedra, muro, roca sólida, arena, madera, nieve, grava y sima/vacío. Pinceles de uno, dos o tres casillas; zoom, desplazamiento, coordenadas y ajuste a pantalla.
 
-La previsualización del editor reduce automáticamente sus píxeles por casilla en mapas grandes o muy alargados para mantener la interacción fluida. Esto no modifica la geometría, el JSON ni la resolución elegida al exportar. Durante una pincelada se muestra una superposición ligera y el terreno se recompone al soltar el puntero. Colocar o borrar objetos actualiza solo su capa cacheada, sin reconstruir terreno, texturas e iluminación; si la animación está activa, la capa estática que no se muestra se sincroniza al pausarla o al abrir la exportación.
+La previsualización del editor reduce automáticamente sus píxeles por casilla en mapas grandes o muy alargados para mantener la interacción fluida. Esto no modifica la geometría, el JSON ni la resolución elegida al exportar. Durante una pincelada se muestra una superposición ligera y el terreno se recompone al soltar el puntero. Colocar o borrar objetos actualiza solo su capa cacheada, sin reconstruir terreno, texturas e iluminación; si la animación está activa, la capa estática que no se muestra se sincroniza al pausarla.
 
 El historial permite hasta **30 pasos**. Regenerar o abrir otro proyecto reinicia el historial. El último proyecto se guarda automáticamente en este navegador; conviene descargar también el JSON como copia de seguridad.
 
@@ -362,7 +362,7 @@ La animación se aplica también a elementos pintados o colocados manualmente y 
 
 ### PNG y JPEG
 
-Exportación estática de la **planta activa completa**, independiente del zoom, con o sin cuadrícula y a **25, 50, 100 o 150 píxeles por casilla**. PNG sin pérdida; JPEG al 94 %. Sin controles del editor, coordenadas externas ni marcas de agua.
+Exportación estática de la **planta activa completa**, independiente del zoom, con o sin cuadrícula y a **25, 50, 100 o 150 píxeles por casilla**. La cuadrícula comienza desactivada cada vez que se abre el diálogo de exportación, independientemente de la vista del editor. PNG sin pérdida; JPEG al 94 %. Sin controles del editor, coordenadas externas ni marcas de agua.
 
 Límite de **40 megapíxeles por imagen**. Una combinación superior muestra un error; elegir menor resolución. Los píxeles por casilla no fijan por sí solos el tamaño físico de impresión: ajustar la escala en la aplicación de impresión o mesa virtual.
 

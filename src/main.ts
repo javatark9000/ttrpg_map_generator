@@ -252,7 +252,6 @@ const view = new Viewport($('#map-canvas'));
 void document.fonts.ready.then(() => view.draw());
 let config: MapConfig = structuredClone(DEFAULT_CONFIG);
 let map: BattleMap;
-let mapImage: HTMLCanvasElement;
 let editorLayers: HTMLCanvasElement[] = [];
 let editorObjectsDirty = false;
 let objectTheme: Theme = config.theme;
@@ -299,25 +298,25 @@ function render(fit = false): void {
   view.setAnimation();
   const editorTile = editorTileSize(map.config.width, map.config.height);
   const nextLayers: HTMLCanvasElement[] = [];
-  mapImage = renderMap(map, editorTile, options, nextLayers);
-  const previousLayers = editorLayers; editorLayers = nextLayers.length ? nextLayers : [mapImage];
+  renderMap(map, editorTile, options, nextLayers);
+  const previousLayers = editorLayers; editorLayers = nextLayers;
   editorObjectsDirty = false;
   view.setMapLayers(map, editorLayers, fit);
   for (const layer of previousLayers) { layer.width = 1; layer.height = 1; }
   updateAnimation(); updateStatus();
 }
 function syncEditorObjectLayer(): void {
-  if (!map || !editorObjectsDirty || editorLayers.length < 3) return;
+  if (!map || !editorObjectsDirty || !editorLayers[1]) return;
   const tile = editorLayers[0].width / map.config.width;
   const replacement = renderObjectLayer(map, tile, options);
   const previous = editorLayers[1]; editorLayers[1] = replacement;
-  editorObjectsDirty = false; view.replaceLayer(1, replacement);
+  editorObjectsDirty = false; view.updateObjects(map, replacement);
   previous.width = 1; previous.height = 1;
 }
 function renderObjectsOnly(): void {
-  if (!map || editorLayers.length < 3) { render(); return; }
+  if (!map || !editorLayers[1]) { render(); return; }
   editorObjectsDirty = true;
-  if (animationEnabled && hasAnimation(map, options)) view.updateAnimationObjects(map);
+  if (animationEnabled && hasAnimation(map, options)) view.updateObjects(map);
   else syncEditorObjectLayer();
   updateStatus();
 }
@@ -969,16 +968,30 @@ const exportDialog = $('#export-dialog') as HTMLDialogElement;
 exportDialog.addEventListener('close', () => {
   exportSnapshot = undefined;
   exportController?.abort();
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = undefined;
 });
-$('#open-export').addEventListener('click', async () => {
+async function updateExportPreview(snapshot: BattleMap, grid: boolean): Promise<void> {
+  const tile = Math.min(16, editorTileSize(snapshot.config.width, snapshot.config.height));
+  const source = renderMap(snapshot, tile, { ...options, grid });
+  const preview = document.createElement('canvas');
+  preview.width = 640;
+  preview.height = Math.round(640 * snapshot.config.height / snapshot.config.width);
+  preview.getContext('2d')!.drawImage(source, 0, 0, preview.width, preview.height);
+  source.width = 1; source.height = 1;
+  const blob = await new Promise<Blob | null>(resolve => preview.toBlob(resolve));
+  if (!blob || exportSnapshot !== snapshot || !exportDialog.open || ($('#export-grid') as Toggle).selected !== grid) return;
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(blob);
+  ($('#export-preview') as HTMLImageElement).src = previewUrl;
+}
+$('#open-export').addEventListener('click', () => {
   if (!map || busy) return;
   if (renderTimer) render();
-  syncEditorObjectLayer();
 
   const snapshot = structuredClone(map);
-  const previewGrid = options.grid;
   exportSnapshot = snapshot;
-  ($('#export-grid') as Toggle).selected = previewGrid;
+  ($('#export-grid') as Toggle).selected = false;
   $('#export-error').hidden = true;
   if (snapshot.config.width * snapshot.config.height * Number(($('#export-resolution') as Field).value) ** 2 > 40_000_000) {
     ($('#export-resolution') as Field).value = '50';
@@ -989,20 +1002,7 @@ $('#open-export').addEventListener('click', async () => {
   ($('#export-preview') as HTMLImageElement).removeAttribute('src');
   updateExportMeta();
   exportDialog.showModal();
-
-  const preview = document.createElement('canvas');
-  preview.width = 640;
-  preview.height = Math.round(640 * mapImage.height / mapImage.width);
-  const previewContext = preview.getContext('2d')!;
-  for (const layer of editorLayers) previewContext.drawImage(layer, 0, 0, preview.width, preview.height);
-  const blob = await new Promise<Blob | null>(resolve => preview.toBlob(resolve));
-  if (!blob || exportSnapshot !== snapshot || !exportDialog.open || ($('#export-grid') as Toggle).selected !== previewGrid) return;
-
-  if (previewUrl) URL.revokeObjectURL(previewUrl);
-  previewUrl = URL.createObjectURL(blob);
-  const image = $('#export-preview') as HTMLImageElement;
-  image.src = previewUrl;
-  try { await image.decode(); } catch { /* The map can still be exported without its thumbnail. */ }
+  void updateExportPreview(snapshot, false);
 });
 function updateExportMeta(): void {
   const source = exportSnapshot ?? map;
@@ -1016,16 +1016,7 @@ function updateExportMeta(): void {
 }
 for (const id of ['export-resolution', 'export-format']) $(`#${id}`).addEventListener('change', () => { updateExportMeta(); $('#export-error').hidden = true; });
 $('#export-grid').addEventListener('change', () => {
-  const snapshot = exportSnapshot;
-  if (!snapshot) return;
-  const grid = ($('#export-grid') as Toggle).selected;
-  const preview = renderMap(snapshot, 16, { ...options, grid });
-  preview.toBlob(blob => {
-    if (!blob || exportSnapshot !== snapshot || ($('#export-grid') as Toggle).selected !== grid) return;
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = URL.createObjectURL(blob);
-    ($('#export-preview') as HTMLImageElement).src = previewUrl;
-  });
+  if (exportSnapshot) void updateExportPreview(exportSnapshot, ($('#export-grid') as Toggle).selected);
 });
 for (const id of ['close-export', 'cancel-export']) $(`#${id}`).addEventListener('click', () => ($('#export-dialog') as HTMLDialogElement).close());
 $('#download-image').addEventListener('click', async () => {

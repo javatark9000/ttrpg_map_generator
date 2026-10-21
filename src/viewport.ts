@@ -4,8 +4,7 @@ import type { AnimatedScene } from './engine/animation';
 export type Tool = 'pan' | 'brush' | 'erase' | 'place';
 export class Viewport {
   private ctx: CanvasRenderingContext2D;
-  private image?: HTMLCanvasElement;
-  private images: HTMLCanvasElement[] = [];
+  private layers: HTMLCanvasElement[] = [];
   private map?: BattleMap;
   private tile = 56;
   private zoom = 1;
@@ -80,19 +79,16 @@ export class Viewport {
     this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr);
     this.draw();
   }
-  setMap(map: BattleMap, image: HTMLCanvasElement, fit = false): void { this.setMapLayers(map, [image], fit); }
-  setMapLayers(map: BattleMap, images: HTMLCanvasElement[], fit = false): void {
-    if (!images.length) return;
-    this.map = map; this.images = images; this.image = images[0]; this.tile = images[0].width / map.config.width;
+  setMapLayers(map: BattleMap, layers: HTMLCanvasElement[], fit = false): void {
+    if (!layers.length) return;
+    this.map = map; this.layers = layers; this.tile = layers[0].width / map.config.width;
     this.editPreview.clear();
     if (fit) this.fit(); else this.draw();
   }
-  replaceLayer(index: number, image: HTMLCanvasElement): void {
-    this.images[index] = image;
-    if (index === 0) this.image = image;
-    this.editPreview.clear(); this.draw();
+  updateObjects(map: BattleMap, objectLayer?: HTMLCanvasElement): void {
+    if (objectLayer) { this.layers[1] = objectLayer; this.editPreview.clear(); }
+    this.animation?.updateObjects(map); this.draw();
   }
-  updateAnimationObjects(map: BattleMap): void { this.animation?.updateObjects(map); this.draw(); }
   previewEdit(x: number, y: number): void {
     if (!this.map) return;
     const size = this.brushSize, shift = Math.floor(size / 2), { width, height } = this.map.config;
@@ -105,11 +101,12 @@ export class Viewport {
   setTool(tool: Tool): void { this.tool = tool; this.updateCursor(); this.draw(); }
   private updateCursor(): void { this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair'; }
   fit(): void {
-    if (!this.image) return;
+    const image = this.layers[0];
+    if (!image) return;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
-    this.zoom = Math.min((w - 100) / this.image.width, (h - 116) / this.image.height);
+    this.zoom = Math.min((w - 100) / image.width, (h - 116) / image.height);
     this.zoom = Math.max(.04, this.zoom);
-    this.offset = { x: (w - this.image.width * this.zoom) / 2, y: (h - this.image.height * this.zoom) / 2 };
+    this.offset = { x: (w - image.width * this.zoom) / 2, y: (h - image.height * this.zoom) / 2 };
     this.onZoom?.(this.zoom); this.draw();
   }
   zoomBy(factor: number): void { this.setZoom(this.zoom * factor); }
@@ -127,14 +124,15 @@ export class Viewport {
   private paint(): void {
     const ctx = this.ctx, dpr = Math.min(devicePixelRatio || 1, 2);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
-    if (!this.image || !this.map) return;
+    const image = this.layers[0];
+    if (!image || !this.map) return;
     ctx.save(); ctx.translate(this.offset.x, this.offset.y); ctx.scale(this.zoom, this.zoom);
     ctx.shadowColor = '#00000066'; ctx.shadowBlur = 30 / this.zoom; ctx.shadowOffsetY = 10 / this.zoom;
-    ctx.fillStyle = '#1c151b'; ctx.fillRect(0, 0, this.image.width, this.image.height);
+    ctx.fillStyle = '#1c151b'; ctx.fillRect(0, 0, image.width, image.height);
     ctx.shadowColor = 'transparent';
     const animated = this.animation?.frame(performance.now());
-    if (animated) ctx.drawImage(animated, 0, 0, this.image.width, this.image.height);
-    else for (const image of this.images) ctx.drawImage(image, 0, 0, this.image.width, this.image.height);
+    if (animated) ctx.drawImage(animated, 0, 0, image.width, image.height);
+    else for (const layer of this.layers) ctx.drawImage(layer, 0, 0, image.width, image.height);
     if (this.editPreview.size) {
       const color = this.tool === 'erase' ? this.ui.danger : this.ui.accent;
       ctx.fillStyle = `${color}38`;
@@ -143,7 +141,7 @@ export class Viewport {
         ctx.fillRect(x * this.tile, y * this.tile, this.tile, this.tile);
       }
     }
-    ctx.strokeStyle = `${this.ui.accent}66`; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, this.image.width, this.image.height);
+    ctx.strokeStyle = `${this.ui.accent}66`; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, image.width, image.height);
     // Editor coordinates stay readable at every zoom and never enter the export.
     ctx.fillStyle = this.ui.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${10 / this.zoom}px Inter, sans-serif`;
     for (let x = 0; x < this.map.config.width; x += 5) ctx.fillText(String(x + 1).padStart(2, '0'), (x + .5) * this.tile, -12 / this.zoom);
