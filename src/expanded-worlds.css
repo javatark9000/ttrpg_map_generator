@@ -1,16 +1,35 @@
 @layer reset, base, components, responsive;
 
 @layer components {
-  .biome-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
-  .biome-card { min-height: 48px; display: flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-2); color: var(--text); text-align: left; transition: background 150ms ease, border-color 150ms ease; }
-  .biome-card:hover { border-color: #986673; background: var(--surface-3); }
-  .biome-card.selected, .biome-card[aria-pressed='true'] { border-color: var(--accent); background: #5a382f66; box-shadow: inset 3px 0 var(--accent); }
-  .biome-art { width: 28px; height: 32px; flex: none; display: grid; place-items: center; }
-  .biome-art img { width: 28px; height: 32px; object-fit: contain; }
-  .biome-info { min-width: 0; }
-  .biome-info strong { display: block; color: var(--text); font-size: 12px; font-weight: 550; line-height: 1.35; overflow-wrap: anywhere; }
-  .biome-check { width: 14px; height: 14px; flex: none; margin-left: auto; display: grid; place-items: center; border: 1px solid #8b5e69; border-radius: 50%; color: var(--accent-contrast); }
-  .biome-check .icon { width: 10px; height: 10px; opacity: 0; }
-  .biome-card.selected .biome-check { border-color: var(--accent); background: var(--accent); }
-  .biome-card.selected .biome-check .icon { opacity: 1; stroke-width: 2.4; }
+  .scenario-feature { display: block; width: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); text-align: left; }
+  .scenario-feature:hover { border-color: var(--accent); }
+  .scenario-picture { display: block; height: 106px; overflow: hidden; background: var(--surface-2); }
+  .scenario-picture img { width: 100%; height: 100%; object-fit: cover; }
+  .scenario-info { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .scenario-info small { display: block; margin-bottom: 3px; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: 1.3px; }
+  .scenario-info strong { font: 400 21px var(--heading); }
+  .scenario-info > .icon { width: 17px; height: 17px; color: var(--accent); }
+  .scenario-foot { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+  .scenario-foot .icon { width: 15px; height: 15px; }
+  .biome-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .biome-card { position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); text-align: left; }
+  .biome-card:hover { background: var(--surface-2); }
+  .biome-card.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+  .biome-card > img { width: 100%; height: 105px; object-fit: cover; background: var(--surface-2); }
+  .biome-info { display: block; padding: 12px 14px; }
+  .biome-info small { display: block; color: var(--muted); font-size: 10px; }
+  .biome-info strong { display: block; font-size: 14px; font-weight: 650; }
+  .biome-check { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); visibility: hidden; }
+  .biome-check .icon { width: 14px; height: 14px; }
+  .biome-card.selected .biome-check { visibility: visible; }
+}
+
+@layer responsive {
+  @media (min-width: 1700px) { .scenario-picture { height: 130px; } }
+  @media (max-width: 700px) { .biome-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 400px) {
+    .biome-card > img { height: 80px; }
+    .biome-info { padding: 10px; }
+    .biome-info strong { font-size: 12px; }
+  }
 }

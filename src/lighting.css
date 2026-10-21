@@ -1,12 +1,18 @@
 @layer reset, base, components, responsive;
 
 @layer components {
-  #lighting-panel .panel-description { margin-bottom: 8px; }
   .lighting-section { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
   .lighting-slider { margin-top: 16px; }
   .lighting-slider .slider-label { gap: 8px; }
-  .lighting-slider output { white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .light-compass { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: var(--accent); font-size: 10px; font-variant-numeric: tabular-nums; }
-  #light-compass-arrow { width: 32px; height: 32px; flex: none; display: inline-block; color: var(--accent); font-size: 25px; line-height: 32px; text-align: center; }
+  .lighting-slider output { white-space: nowrap; }
+  .light-presets { display: flex; gap: 8px; margin: 20px 0; }
+  .light-presets button { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 9px; min-height: 70px; border: 1px solid var(--line); border-radius: var(--radius); font-size: 11px; }
+  .light-presets button:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+  .light-presets .icon { color: var(--accent); width: 23px; height: 23px; }
+  .light-compass { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 24px 0; color: var(--muted); font: 10px monospace; }
+  #light-compass-arrow { position: relative; width: 105px; height: 105px; border: 1px solid var(--line); border-radius: 50%; background: repeating-conic-gradient(transparent 0deg 44deg, var(--line) 44deg 45deg); }
+  #light-compass-arrow::after { content: ''; position: absolute; inset: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; }
+  #light-compass-arrow .icon { position: absolute; z-index: 2; width: 21px; height: 21px; top: 2px; left: 41px; color: var(--accent); }
+  #light-compass-arrow::before { content: ''; position: absolute; z-index: 1; width: 2px; height: 36px; left: 51px; top: 23px; background: var(--accent); }
   #lighting-reset { width: 100%; margin-top: 20px; }
 }

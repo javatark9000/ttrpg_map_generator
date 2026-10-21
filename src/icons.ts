@@ -1,4 +1,10 @@
 const paths: Record<string, string> = {
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8Z"/>',
+  history: '<path d="M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2"/>',
+  play: '<path d="m8 4 12 8-12 8V4Z"/>',
+  pause: '<path d="M8 4v16M16 4v16"/>',
+  moon: '<path d="M20 15.5A9 9 0 0 1 8.5 4 9 9 0 1 0 20 15.5Z"/>',
+  arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
   sparkle: '<path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3Z"/><path d="m20 2 .6 1.4L22 4l-1.4.6L20 6l-.6-1.4L18 4l1.4-.6L20 2Z"/>',
   trees: '<path d="m8 3-5 8h3l-4 6h12l-4-6h3L8 3Zm0 14v4m9-16 4 7h-2l3 6h-7m3 0v3"/>',
   house: '<path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/>',

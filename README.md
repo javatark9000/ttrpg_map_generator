@@ -1,4 +1,4 @@
-# RC map generator
+# Savia · Editor de mapas
 
 Generador y editor de mapas de batalla para D&D, en español, con **Material Web de Google, TypeScript y Canvas 2D**. Generación procedural local: sin React, backend, servicios de imágenes ni IA generativa.
 
@@ -28,7 +28,7 @@ Para publicar, servir `dist/` desde un alojamiento estático con HTTPS. Fuentes,
 ## Primer mapa
 
 1. Elegir la temática global: **Vanilla**, **Dark** o **Anime**.
-2. Seleccionar directamente un escenario: los edificios ya no están dentro de un selector genérico «Edificios».
+2. En **Crear**, abrir la tarjeta de escenario y elegir uno de los quince del catálogo. Los interiores se seleccionan directamente.
 3. Elegir ancho, alto y semilla; ajustar las opciones específicas del escenario.
 4. Pulsar **Generar mapa**. Cambiar una opción de generación no reconstruye el mapa hasta pulsar el botón.
 5. Pintar terreno o colocar objetos. Si hay varias plantas, seleccionar cuál se está editando.
@@ -56,7 +56,11 @@ Las cantidades manuales no se reducen silenciosamente. Los errores de capacidad 
 
 Las temáticas utilizan SVG y paletas propios, no un filtro CSS sobre la misma imagen. El arte no utiliza personajes o emblemas de franquicias.
 
-La interfaz utiliza el diseño **Brasa**: vino/cobre, Inter y Cinzel locales, controles compactos y panel lateral adaptable. Su apariencia no cambia al elegir Vanilla/Dark/Anime ni aplica filtros a los mapas o a las imágenes exportadas.
+La interfaz utiliza **Savia definitivo**: estructura de Savia y paleta Brasa carbón/ámbar, Manrope local y títulos Georgia. Incluye navegación vertical **Crear, Objetos, Terreno, Luz e Historial**, inspector contextual con desplazamiento propio, herramientas sobre el mapa y acciones Abrir/Guardar/Exportar en la cabecera. Hasta 800 px, el inspector se abre como panel superpuesto y puede cerrarse sin ocultar el lienzo.
+
+El catálogo de escenarios muestra ilustraciones orientativas del prototipo, no una previsualización de la semilla. Elegir un escenario prepara la configuración; **Generar mapa** produce el resultado real. No se incluyen operaciones simuladas ni enlaces a una galería externa. La marca visible es Savia; el paquete `rc-map-generator`, las semillas `RC-` y las claves de almacenamiento se mantienen para compatibilidad.
+
+La apariencia de los controles no cambia al elegir Vanilla/Dark/Anime ni aplica filtros a los mapas o a las imágenes exportadas.
 
 Hay dos selectores independientes:
 
@@ -296,7 +300,7 @@ Terrenos disponibles: hierba, sendero, agua, suelo de piedra, muro, roca sólida
 
 La previsualización del editor reduce automáticamente sus píxeles por casilla en mapas grandes o muy alargados para mantener la interacción fluida. Esto no modifica la geometría, el JSON ni la resolución elegida al exportar. Durante una pincelada se muestra una superposición ligera y el terreno se recompone al soltar el puntero. Colocar o borrar objetos actualiza solo su capa cacheada, sin reconstruir terreno, texturas e iluminación; si la animación está activa, la capa estática que no se muestra se sincroniza al pausarla.
 
-El historial permite hasta **30 pasos**. Regenerar o abrir otro proyecto reinicia el historial. El último proyecto se guarda automáticamente en este navegador; conviene descargar también el JSON como copia de seguridad.
+El panel **Historial** muestra los cambios de esta sesión (objetos, terreno, temática e iluminación), permite deshacer/rehacer y conserva hasta **30 pasos**. Regenerar, abrir otro proyecto o recargar reinicia el historial. El último proyecto se guarda automáticamente en este navegador; conviene descargar también el JSON como copia de seguridad.
 
 | Acción | Atajo |
 | --- | --- |
@@ -319,9 +323,10 @@ Los escenarios construyen o reparan sus recorridos según sus reglas. La excepci
 
 ## Iluminación editable
 
-La pestaña **Iluminación** modifica el mapa visible sin regenerar terreno ni objetos:
+El panel **Luz** modifica el mapa visible sin regenerar terreno ni objetos:
 
 - Interruptor general y luz solar independiente.
+- Preajustes **Alba**, **Día** y **Noche**, aplicados a los ajustes reales y con deshacer. Alba/Día están disponibles en exteriores; Noche apaga el sol, ajusta la viñeta al 75 % y los halos al 100 %.
 - Intensidad, calidez y origen de la luz: 0° norte, 90° este, 180° sur, 270° oeste. Las sombras se proyectan en sentido opuesto.
 - Haces: interruptor, intensidad, anchura y cantidad.
 - Sombras solares: interruptor, intensidad, longitud y suavidad.
@@ -446,7 +451,9 @@ public/assets/
   vanilla/ dark/ anime/          SVG de objetos y texturas por temática
   *.svg                         Originales y compatibilidad
 public/fonts/
-  Inter.ttf / Cinzel.ttf         Fuentes locales con sus licencias SIL OFL
+  Manrope.ttf                   Fuente de interfaz local con licencia SIL OFL
+public/previews/
+  *.svg                         Ilustraciones orientativas del catálogo de escenarios
 scripts/
   create-assets.mjs              Colección original
   create-expansion-assets.mjs    Primera ampliación de arquitectura y paisaje
@@ -457,7 +464,7 @@ scripts/
 
 La generación procedural y la codificación GIF se ejecutan en workers separados. El dibujo Canvas 2D y la exportación estática permanecen en el hilo principal. El ruido visual se muestrea en coordenadas del mundo para conservar el paisaje al cambiar resolución.
 
-La guía del diseño Brasa está en `docs/diseno/GUIA_DISENO_BRASA_ASTRA.md`, con el resultado de implementación en `docs/diseno/ESTADO_IMPLEMENTACION_BRASA.md`. Los planes y decisiones de la ampliación están en `docs/change-plans/`. Algunos documentos describen propuestas o estados previos: el código y este README describen la interfaz actual. `legacy_documentation` queda fuera del alcance de esta revisión documental.
+La implementación del diseño vigente se describe en [Savia definitivo](docs/diseno/SAVIA_DEFINITIVO.md), basada en el manual y el prototipo seleccionados. Los documentos anteriores de Brasa y los planes de `docs/change-plans/` describen estados previos; el código y este README describen la interfaz actual. `legacy_documentation` queda fuera del alcance de esta revisión documental.
 
 ## Límites de alcance
 
@@ -470,4 +477,4 @@ La guía del diseño Brasa está en `docs/diseno/GUIA_DISENO_BRASA_ASTRA.md`, co
 - Las exportaciones grandes y las búsquedas de capacidad complejas pueden tardar. Un build correcto no sustituye una revisión manual del resultado.
 - Biblioteca conserva su diseño anterior; su ampliación de salas y opciones queda aplazada.
 
-`@material/web` es Material Web, no Angular Material; considerar su mantenimiento al actualizar dependencias. Inter y Cinzel se sirven desde `public/fonts/`, con sus licencias SIL Open Font License 1.1. No se cargan fuentes desde CDNs ni mediante Fontsource.
+`@material/web` es Material Web, no Angular Material; se conservan sus controles funcionales con los tokens visuales de Savia. Manrope se sirve desde `public/fonts/Manrope.ttf`, con su licencia SIL Open Font License 1.1 en `public/fonts/LICENSE-Manrope.txt`; Georgia y la monoespaciada usan fuentes del sistema. No se cargan fuentes desde CDNs ni mediante Fontsource.

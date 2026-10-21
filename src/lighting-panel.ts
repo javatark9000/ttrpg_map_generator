@@ -1,6 +1,7 @@
 import type { BattleMap } from './engine/types';
 import { DEFAULT_LIGHTING, LIGHTING_RANGES, lightingProfile } from './engine/lighting-settings';
 import type { LightingNumber, LightingSettings } from './engine/lighting-settings';
+import { icon } from './icons';
 import './lighting.css';
 
 type Control = HTMLElement & { value: number; selected: boolean; disabled: boolean };
@@ -15,21 +16,22 @@ const toggles = { enabled: 'Iluminación activada', sun: 'Luz solar', beams: 'Ha
 const toggle = (key: keyof typeof toggles) => `<label class="toggle-row"><span>${toggles[key]}</span><md-switch id="lighting-${key}" aria-label="${toggles[key]}" selected></md-switch></label>`;
 const slider = (key: LightingNumber) => `<div class="lighting-slider"><div class="slider-label"><label id="lighting-${key}-label">${labels[key]}</label><output id="lighting-${key}-value"></output></div><md-slider id="lighting-${key}" aria-labelledby="lighting-${key}-label" min="0" max="${LIGHTING_RANGES[key]}" value="${DEFAULT_LIGHTING[key]}" step="1"></md-slider></div>`;
 export function lightingPanel(): string {
-  return `<section id="lighting-panel" class="panel-content" role="tabpanel" aria-labelledby="tab-lighting" hidden>
-    <div class="section-heading"><h2>Iluminación</h2></div>
-    <p class="panel-description">Cambios inmediatos, sin regenerar el mapa. Se guardan en el proyecto y se conservan en PNG, JPEG y GIF.</p>
-    ${toggle('enabled')}<p id="lighting-context" class="scenario-hint"></p>
+  return `<section id="lighting-panel" class="panel-content" aria-labelledby="lighting-title" hidden>
+    <div class="panel-heading"><h2 id="lighting-title">Iluminación</h2></div>
+    ${toggle('enabled')}
+    <div class="light-presets" role="group" aria-label="Preajustes de iluminación"><button id="light-dawn" title="Luz cálida desde el este">${icon('sun')}Alba</button><button id="light-day" title="Luz solar diurna">${icon('sun')}Día</button><button id="light-night" title="Sin sol directo, con viñeta y halos">${icon('moon')}Noche</button></div>
+    <p id="lighting-context" class="scenario-hint"></p>
+    <div class="light-compass" aria-hidden="true"><span>N</span><div id="light-compass-arrow">${icon('sun')}</div><span>O · 270° &nbsp; E · 90°</span><span>S · 180°</span></div>
     <section class="lighting-section" aria-label="Luz solar">${toggle('sun')}${slider('intensity')}${slider('direction')}
-      <div class="light-compass" aria-hidden="true"><span id="light-compass-arrow">↑</span><span>N · 0° &nbsp; E · 90° &nbsp; S · 180° &nbsp; O · 270°</span></div>
-      <p class="scenario-hint">La dirección indica de dónde viene el sol. Las sombras se proyectan al lado opuesto.</p>${slider('warmth')}</section>
+      <p class="scenario-hint">Origen del sol. Las sombras se proyectan al lado opuesto.</p>${slider('warmth')}</section>
     <section class="lighting-section" aria-label="Haces de luz">${toggle('beams')}${slider('beamStrength')}${slider('beamWidth')}${slider('beamDensity')}
-      <p class="scenario-hint">Solo en bosque y ruinas. Patrón fijo por semilla, bordes difuminados y recorte por estructuras.</p></section>
+      <p class="scenario-hint">Disponibles en bosque y ruinas.</p></section>
     <section class="lighting-section" aria-label="Sombras solares">${toggle('shadows')}${slider('shadowStrength')}${slider('shadowLength')}${slider('softness')}
-      <p class="scenario-hint">Proyección 2D aproximada de árboles, tejados, muros y roca. No modifica casillas ni pasos. Las pequeñas sombras de contacto del dibujo se conservan.</p></section>
+      <p class="scenario-hint">Proyección 2D. Las sombras de contacto del dibujo se conservan.</p></section>
     <section class="lighting-section" aria-label="Ambiente">${slider('vignette')}${slider('halos')}
       <p class="scenario-hint">Independientes de la luz solar. Halos no desactiva llamas, runas ni destellos.</p></section>
     <md-outlined-button id="lighting-reset">Restablecer iluminación</md-outlined-button>
-    <p class="scenario-hint">Luz estática, también en GIF, para no distraer durante la partida. Atmósfera activa o desactiva todo este panel sin borrar sus valores.</p>
+    <p class="scenario-hint">Los ajustes se guardan y exportan. Atmósfera no borra sus valores.</p>
   </section>`;
 }
 export function syncLightingControls(map?: BattleMap, busy = false): void {
@@ -46,6 +48,9 @@ export function syncLightingControls(map?: BattleMap, busy = false): void {
     $(`lighting-${key}-value`).textContent = `${Math.round(s[key])}${key === 'direction' ? '°' : '%'}`;
   }
   ($('lighting-reset') as Control).disabled = disabled;
+  for (const id of ['light-dawn', 'light-day', 'light-night']) {
+    ($(id) as HTMLButtonElement).disabled = disabled || (id !== 'light-night' && !profile.outdoor);
+  }
   $('lighting-context').textContent = profile.description;
   $('light-compass-arrow').style.transform = `rotate(${s.direction}deg)`;
   $('light-toggle').classList.toggle('active', s.enabled);
@@ -62,4 +67,7 @@ export function bindLightingControls(get: () => LightingSettings, change: (setti
     $(`lighting-${key}`).addEventListener('change', () => update(true));
   }
   $('lighting-reset').addEventListener('click', () => change({ ...DEFAULT_LIGHTING }, true));
+  $('light-dawn').addEventListener('click', () => change({ ...get(), enabled: true, sun: true, intensity: 68, warmth: 80, direction: 90 }, true));
+  $('light-day').addEventListener('click', () => change({ ...get(), enabled: true, sun: true, intensity: 85, warmth: 40, direction: 135 }, true));
+  $('light-night').addEventListener('click', () => change({ ...get(), enabled: true, sun: false, vignette: 75, halos: 100 }, true));
 }

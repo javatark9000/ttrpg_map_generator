@@ -17,7 +17,7 @@ export class Viewport {
   private editPreview = new Set<number>();
   private animation?: AnimatedScene;
   private animationTimer?: number;
-  private readonly ui: { accent: string; muted: string; danger: string };
+  private readonly ui: { accent: string; frame: string; ruler: string };
   tool: Tool = 'pan';
   brushSize = 1;
   selectedAsset: AssetId = 'tree-oak';
@@ -33,8 +33,8 @@ export class Viewport {
     const style = getComputedStyle(document.documentElement);
     this.ui = {
       accent: style.getPropertyValue('--accent').trim(),
-      muted: style.getPropertyValue('--muted').trim(),
-      danger: style.getPropertyValue('--danger').trim(),
+      frame: style.getPropertyValue('--map-frame').trim(),
+      ruler: style.getPropertyValue('--ruler').trim(),
     };
     new ResizeObserver(() => { this.resize(); }).observe(canvas.parentElement!);
     canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -103,10 +103,14 @@ export class Viewport {
   fit(): void {
     const image = this.layers[0];
     if (!image) return;
-    const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
-    this.zoom = Math.min((w - 100) / image.width, (h - 116) / image.height);
-    this.zoom = Math.max(.04, this.zoom);
-    this.offset = { x: (w - image.width * this.zoom) / 2, y: (h - image.height * this.zoom) / 2 };
+    const style = getComputedStyle(this.canvas);
+    const left = Number(style.getPropertyValue('--map-inset-left'));
+    const right = Number(style.getPropertyValue('--map-inset-right'));
+    const top = Number(style.getPropertyValue('--map-inset-top'));
+    const bottom = Number(style.getPropertyValue('--map-inset-bottom'));
+    const w = this.canvas.clientWidth - left - right, h = this.canvas.clientHeight - top - bottom;
+    this.zoom = Math.max(.04, Math.min(w / image.width, h / image.height));
+    this.offset = { x: left + (w - image.width * this.zoom) / 2, y: top + (h - image.height * this.zoom) / 2 };
     this.onZoom?.(this.zoom); this.draw();
   }
   zoomBy(factor: number): void { this.setZoom(this.zoom * factor); }
@@ -127,23 +131,24 @@ export class Viewport {
     const image = this.layers[0];
     if (!image || !this.map) return;
     ctx.save(); ctx.translate(this.offset.x, this.offset.y); ctx.scale(this.zoom, this.zoom);
-    ctx.shadowColor = '#00000066'; ctx.shadowBlur = 30 / this.zoom; ctx.shadowOffsetY = 10 / this.zoom;
-    ctx.fillStyle = '#1c151b'; ctx.fillRect(0, 0, image.width, image.height);
+    const frame = 7 / this.zoom;
+    ctx.shadowColor = '#00000088'; ctx.shadowBlur = 35 / this.zoom; ctx.shadowOffsetY = 10 / this.zoom;
+    ctx.fillStyle = this.ui.frame; ctx.fillRect(-frame, -frame, image.width + frame * 2, image.height + frame * 2);
     ctx.shadowColor = 'transparent';
     const animated = this.animation?.frame(performance.now());
     if (animated) ctx.drawImage(animated, 0, 0, image.width, image.height);
     else for (const layer of this.layers) ctx.drawImage(layer, 0, 0, image.width, image.height);
     if (this.editPreview.size) {
-      const color = this.tool === 'erase' ? this.ui.danger : this.ui.accent;
-      ctx.fillStyle = `${color}38`;
+      ctx.fillStyle = `${this.ui.accent}38`;
       for (const index of this.editPreview) {
         const x = index % this.map.config.width, y = Math.floor(index / this.map.config.width);
         ctx.fillRect(x * this.tile, y * this.tile, this.tile, this.tile);
       }
     }
-    ctx.strokeStyle = `${this.ui.accent}66`; ctx.lineWidth = 1 / this.zoom; ctx.strokeRect(0, 0, image.width, image.height);
+    ctx.strokeStyle = `${this.ui.accent}33`; ctx.lineWidth = 1 / this.zoom;
+    ctx.strokeRect(-frame, -frame, image.width + frame * 2, image.height + frame * 2);
     // Editor coordinates stay readable at every zoom and never enter the export.
-    ctx.fillStyle = this.ui.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${10 / this.zoom}px Inter, sans-serif`;
+    ctx.fillStyle = this.ui.ruler; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${10 / this.zoom}px monospace`;
     for (let x = 0; x < this.map.config.width; x += 5) ctx.fillText(String(x + 1).padStart(2, '0'), (x + .5) * this.tile, -12 / this.zoom);
     for (let y = 0; y < this.map.config.height; y += 5) ctx.fillText(String(y + 1).padStart(2, '0'), -17 / this.zoom, (y + .5) * this.tile);
     if (this.pointer && !this.dragging && this.tool !== 'pan') {
@@ -154,8 +159,8 @@ export class Viewport {
           ctx.save(); ctx.globalAlpha = .65; ctx.translate((x + .5) * this.tile, (y + .5) * this.tile); ctx.rotate(this.rotation); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore();
         } else {
           const size = this.brushSize, shift = Math.floor(size / 2);
-          const color = this.tool === 'erase' ? this.ui.danger : this.ui.accent;
-          ctx.fillStyle = `${color}33`; ctx.strokeStyle = color; ctx.lineWidth = 1.5 / this.zoom;
+          ctx.fillStyle = `${this.ui.accent}33`; ctx.strokeStyle = this.ui.accent; ctx.lineWidth = 1.5 / this.zoom;
+          if (this.tool === 'erase') ctx.setLineDash([4 / this.zoom, 3 / this.zoom]);
           ctx.fillRect((x - shift) * this.tile, (y - shift) * this.tile, size * this.tile, size * this.tile); ctx.strokeRect((x - shift) * this.tile, (y - shift) * this.tile, size * this.tile, size * this.tile);
         }
       }
